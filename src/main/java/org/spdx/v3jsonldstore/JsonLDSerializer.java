@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spdx.core.CoreModelObject;
+import org.spdx.core.IndividualUriValue;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.ModelRegistry;
 import org.spdx.core.TypedValue;
@@ -183,9 +184,9 @@ public class JsonLDSerializer {
 		for (Schema classSchema:jsonLDSchema.getAllClasses()) {
 			try {
 				if (jsonLDSchema.isSubclassOf("simplelicensing_AnyLicenseInfo", classSchema)) {
-					Optional<String> typeName = jsonLDSchema.getType(classSchema);
-					if (typeName.isPresent()) {
-						retval.add(typeName.get());
+					Optional<URI> typeUri = jsonLDSchema.getTypeUri(classSchema);
+					if (typeUri.isPresent()) {
+						retval.add(classUriToType(typeUri.get()));
 					} else {
 						logger.warn("No class type found for " + classSchema.getUri());
 					}
@@ -205,9 +206,9 @@ public class JsonLDSerializer {
 		for (Schema classSchema:jsonLDSchema.getAllClasses()) {
 			try {
 				if (jsonLDSchema.isSubclassOf("Element", classSchema)) {
-					Optional<String> typeName = jsonLDSchema.getType(classSchema);
-					if (typeName.isPresent()) {
-						retval.add(typeName.get());
+					Optional<URI> typeUri = jsonLDSchema.getTypeUri(classSchema);
+					if (typeUri.isPresent()) {
+						retval.add(classUriToType(typeUri.get()));
 					} else {
 						logger.warn("No class type found for " + classSchema.getUri());
 					}
@@ -228,7 +229,7 @@ public class JsonLDSerializer {
 		String nameSpace = strClassUri.substring(0, classUri.toString().lastIndexOf('/'));
 		String profile = nameSpace.substring(nameSpace.lastIndexOf('/') + 1);
 		profile = RESERVED_JAVA_WORDS.getOrDefault(profile, profile);
-		String className = strClassUri.substring(strClassUri.lastIndexOf('#') + 1);
+		String className = strClassUri.substring(strClassUri.lastIndexOf('/') + 1);
 		className = RESERVED_JAVA_WORDS.getOrDefault(className, className);
 		return profile + "." + className;
 	}
@@ -239,7 +240,6 @@ public class JsonLDSerializer {
 	 */
 	public JsonNode serialize() throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		String.format(specVersion, specVersion);
 		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
 		ArrayNode graph = jsonMapper.createArrayNode();
 		root.set("@graph", graph);
@@ -293,7 +293,8 @@ public class JsonLDSerializer {
 			String serializedId,
 			Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		ObjectNode retval = jsonMapper.createObjectNode();
-		retval.set("spdxId", new TextNode(serializedId));
+		retval.set(modelObject instanceof Element ? "spdxId" : "@id", new TextNode(serializedId));
+		retval.set("type", new TextNode(typeToJsonType(modelObject.getType())));
 		for (PropertyDescriptor prop:modelObject.getPropertyValueDescriptors()) {
 			if (modelObject.getModelStore().isCollectionProperty(modelObject.getObjectUri(), prop)) {
 				ArrayNode an = jsonMapper.createArrayNode();
@@ -319,10 +320,10 @@ public class JsonLDSerializer {
 	private String propertyToJsonLdPropName(PropertyDescriptor prop) {
 		String profile = prop.getNameSpace().substring(0, prop.getNameSpace().length()-1);
 		profile = profile.substring(profile.lastIndexOf('/') + 1);
-		if ("core".equals(profile)) {
+		if ("Core".equals(profile)) {
 			return prop.getName();
 		} else {
-			return profile + "_" + prop.getName();
+			return profile.toLowerCase() + "_" + prop.getName();
 		}
 	}
 
@@ -342,6 +343,15 @@ public class JsonLDSerializer {
 			return ((Boolean)object) ? BooleanNode.TRUE : BooleanNode.FALSE;
 		} else if (object instanceof Integer) {
 			return new IntNode((Integer)object);
+		} else if (object instanceof IndividualUriValue) {
+			// it's an Enum, Individual or external element
+			String individualUri = ((IndividualUriValue)object).getIndividualURI();
+			Enum<?> spdxEnum = SpdxModelFactory.uriToEnum(individualUri, specVersion);
+			if (Objects.nonNull(spdxEnum)) {
+				return new TextNode(spdxEnum.toString());
+			} else {
+				return new TextNode(individualUri); // should work for both individuals and external referenced SPDX elements
+			}
 		} else {
 			throw new InvalidSPDXAnalysisException("Unknown class for object to json node: "+object.getClass());
 		}
@@ -366,6 +376,7 @@ public class JsonLDSerializer {
 		} else {
 			// we should inline to the object
 			ObjectNode retval = jsonMapper.createObjectNode();
+			retval.set("type", new TextNode(typeToJsonType(tv.getType())));
 			for (PropertyDescriptor prop:modelStore.getPropertyValueDescriptors(tv.getObjectUri())) {
 				if (modelStore.isCollectionProperty(tv.getObjectUri(), prop)) {
 					ArrayNode an = jsonMapper.createArrayNode();
@@ -386,6 +397,19 @@ public class JsonLDSerializer {
 	}
 	
 	/**
+	 * @param type model type
+	 * @return the JSON representation of the type
+	 */
+	private String typeToJsonType(String type) {
+		String[] parts = type.split("\\.");
+		if ("Core".equals(parts[0])) {
+			return parts[1];
+		} else {
+			return parts[0].toLowerCase() + "_" + parts[1];
+		}
+	}
+
+	/**
 	 * @return a list of all types which subclass AnyLicenseInfo
 	 */
 	protected List<String> getAnyLicenseInfoTypes() {
@@ -398,5 +422,4 @@ public class JsonLDSerializer {
 	protected List<String> getElementTypes() {
 		return this.elementTypes;
 	}
-
 }
