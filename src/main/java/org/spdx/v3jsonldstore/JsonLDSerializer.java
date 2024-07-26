@@ -4,8 +4,6 @@
  */
 package org.spdx.v3jsonldstore;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -45,7 +43,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
 import net.jimblackler.jsonschemafriend.GenerationException;
-import net.jimblackler.jsonschemafriend.Schema;
 
 /**
  * @author Gary O'Neall
@@ -61,14 +58,6 @@ import net.jimblackler.jsonschemafriend.Schema;
 public class JsonLDSerializer {
 	
 	static final Logger logger = LoggerFactory.getLogger(JsonLDSerializer.class);
-	
-	public static Map<String, String> RESERVED_JAVA_WORDS = new HashMap<>();
-	static {
-		RESERVED_JAVA_WORDS.put("Package", "SpdxPackage");
-		RESERVED_JAVA_WORDS.put("package", "spdxPackage");
-		RESERVED_JAVA_WORDS.put("File", "SpdxFile");
-		RESERVED_JAVA_WORDS.put("file", "spdxFile");
-	}
 	
 	static final Comparator<JsonNode> NODE_COMPARATOR = new Comparator<JsonNode>() {
 
@@ -151,8 +140,6 @@ public class JsonLDSerializer {
 	private boolean pretty;
 	private String specVersion;
 	private JsonLDSchema jsonLDSchema;
-	private List<String> elementTypes;
-	private List<String> anyLicenseInfoTypes;
 
 	/**
 	 * @param jsonMapper mapper to use for serialization
@@ -172,66 +159,6 @@ public class JsonLDSerializer {
 		this.specVersion = specVersion;
 		jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
 				String.format("spdx-context-v%s.jsonld",  specVersion));
-		elementTypes = collectElementTypes();
-		anyLicenseInfoTypes = collectAnyLicenseInfoTypes();
-	}
-
-	/**
-	 * @return a list of all element types that are subclasses of AnyLicenseInfo
-	 */
-	private List<String> collectAnyLicenseInfoTypes() {
-		List<String> retval = new ArrayList<>();
-		for (Schema classSchema:jsonLDSchema.getAllClasses()) {
-			try {
-				if (jsonLDSchema.isSubclassOf("simplelicensing_AnyLicenseInfo", classSchema)) {
-					Optional<URI> typeUri = jsonLDSchema.getTypeUri(classSchema);
-					if (typeUri.isPresent()) {
-						retval.add(classUriToType(typeUri.get()));
-					} else {
-						logger.warn("No class type found for " + classSchema.getUri());
-					}
-				}
-			} catch (URISyntaxException e) {
-				throw new RuntimeException("Unexpected URI syntax error", e);
-			}
-		}
-		return retval;
-	}
-
-	/**
-	 * @return a list of all element types that are subclasses of Element
-	 */
-	private List<String> collectElementTypes() {
-		List<String> retval = new ArrayList<>();
-		for (Schema classSchema:jsonLDSchema.getAllClasses()) {
-			try {
-				if (jsonLDSchema.isSubclassOf("Element", classSchema)) {
-					Optional<URI> typeUri = jsonLDSchema.getTypeUri(classSchema);
-					if (typeUri.isPresent()) {
-						retval.add(classUriToType(typeUri.get()));
-					} else {
-						logger.warn("No class type found for " + classSchema.getUri());
-					}
-				}
-			} catch (URISyntaxException e) {
-				throw new RuntimeException("Unexpected URI syntax error", e);
-			}
-		}
-		return retval;
-	}
-
-	/**
-	 * @param classUri URI for the class
-	 * @return type name used in the SPDX 3 model
-	 */
-	private String classUriToType(URI classUri) {
-		String strClassUri = classUri.toString();
-		String nameSpace = strClassUri.substring(0, classUri.toString().lastIndexOf('/'));
-		String profile = nameSpace.substring(nameSpace.lastIndexOf('/') + 1);
-		profile = RESERVED_JAVA_WORDS.getOrDefault(profile, profile);
-		String className = strClassUri.substring(strClassUri.lastIndexOf('/') + 1);
-		className = RESERVED_JAVA_WORDS.getOrDefault(className, className);
-		return profile + "." + className;
 	}
 
 	/**
@@ -241,12 +168,11 @@ public class JsonLDSerializer {
 	public JsonNode serialize() throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
 		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
-		ArrayNode graph = jsonMapper.createArrayNode();
-		root.set("@graph", graph);
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
 		// collect all the creation infos
 		ModelCopyManager copyManager = new ModelCopyManager();
+		List<JsonNode> graph = new ArrayList<>();
 		IModelStoreLock lock = modelStore.enterCriticalSection(true);
 		try {
 			@SuppressWarnings("unchecked")
@@ -259,7 +185,10 @@ public class JsonLDSerializer {
 				idToSerializedId.put(creationInfo.getObjectUri(), serializedId);
 				graph.add(modelObjectToJsonNode(creationInfo, serializedId, idToSerializedId));
 			}
-			for (String type:elementTypes) {
+			
+			//TODO: Create an SPDX document to wrap the serialized data
+			//TODO: Keep track of external SPDX elements and add them to an external in the SPDX document
+			for (String type:jsonLDSchema.getElementTypes()) {
 				@SuppressWarnings("unchecked")
 				List<Element> elements = (List<Element>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager, 
 						type, null, null).collect(Collectors.toList());
@@ -275,7 +204,10 @@ public class JsonLDSerializer {
 					graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
 				}
 			}
-			// collect each of the types and serialize
+			graph.sort(NODE_COMPARATOR);
+			ArrayNode graphNodes = jsonMapper.createArrayNode();
+			graphNodes.addAll(graph);
+			root.set("@graph", graphNodes);
 			return root;
 		} finally {
 			modelStore.leaveCriticalSection(lock);
@@ -348,7 +280,8 @@ public class JsonLDSerializer {
 			String individualUri = ((IndividualUriValue)object).getIndividualURI();
 			Enum<?> spdxEnum = SpdxModelFactory.uriToEnum(individualUri, specVersion);
 			if (Objects.nonNull(spdxEnum)) {
-				return new TextNode(spdxEnum.toString());
+				String enumName = individualUri.substring(individualUri.lastIndexOf('/') + 1);
+				return new TextNode(enumName);
 			} else {
 				return new TextNode(individualUri); // should work for both individuals and external referenced SPDX elements
 			}
@@ -365,12 +298,12 @@ public class JsonLDSerializer {
 	 * @throws InvalidSPDXAnalysisException on errors retrieving model store information
 	 */
 	private JsonNode typedValueToJsonNode(TypedValue tv, IModelStore modelStore, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
-		if (elementTypes.contains(tv.getType())) {
+		if (jsonLDSchema.getElementTypes().contains(tv.getType())) {
 			// Just return the object URI since the element will be in the @graph
 			return new TextNode(idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
 		} else if (SpdxConstantsV3.CORE_CREATION_INFO.equals(tv.getType()))  {
 			return new TextNode (idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
-		} else if (pretty && anyLicenseInfoTypes.contains(tv.getType())) {
+		} else if (pretty && jsonLDSchema.getAnyLicenseInfoTypes().contains(tv.getType())) {
 			AnyLicenseInfo licenseInfo = (AnyLicenseInfo)ModelRegistry.getModelRegistry().inflateModelObject(modelStore, tv.getObjectUri(), tv.getType(), new ModelCopyManager(), tv.getSpecVersion(), false, "");
 			return new TextNode(licenseInfo.toString());
 		} else {
@@ -403,23 +336,16 @@ public class JsonLDSerializer {
 	private String typeToJsonType(String type) {
 		String[] parts = type.split("\\.");
 		if ("Core".equals(parts[0])) {
-			return parts[1];
+			return JsonLDSchema.REVERSE_JAVA_WORDS.getOrDefault(parts[1], parts[1]);
 		} else {
-			return parts[0].toLowerCase() + "_" + parts[1];
+			return parts[0].toLowerCase() + "_" + JsonLDSchema.REVERSE_JAVA_WORDS.getOrDefault(parts[1], parts[1]);
 		}
 	}
 
 	/**
-	 * @return a list of all types which subclass AnyLicenseInfo
+	 * @return JSON LD Schema
 	 */
-	protected List<String> getAnyLicenseInfoTypes() {
-		return this.anyLicenseInfoTypes;
-	}
-	
-	/**
-	 * @return a list of all types which subclass Element
-	 */
-	protected List<String> getElementTypes() {
-		return this.elementTypes;
+	public JsonLDSchema getSchema() {
+		return this.jsonLDSchema;
 	}
 }

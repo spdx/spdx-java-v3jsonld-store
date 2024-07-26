@@ -123,7 +123,11 @@ public class JsonLDStore extends ExtendedSpdxStore
 		if (Objects.nonNull(graph)) {
 			deserializer.deserializeGraph(graph);
 		} else {
-			deserializer.deserializeGraph(root);
+			try {
+				deserializer.deserializeElement(root);
+			} catch (GenerationException e) {
+				throw new InvalidSPDXAnalysisException("Error opening or reading SPDX 3.X schema",e);
+			}
 		}
 	}
 

@@ -18,6 +18,7 @@ import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v3.core.Agent;
 import org.spdx.library.model.v3.core.CreationInfo;
 import org.spdx.library.model.v3.core.HashAlgorithm;
+import org.spdx.library.model.v3.core.Person;
 import org.spdx.library.model.v3.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
@@ -52,32 +53,6 @@ public class JsonLDSerializerTest {
 	 */
 	@After
 	public void tearDown() throws Exception {
-	}
-	
-	@Test
-	public void testGetAllAnyLicenseInfos() throws GenerationException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, SpdxModelFactory.getLatestSpecVersion(), modelStore);
-		List<String> retval = serializer.getAnyLicenseInfoTypes();
-		assertFalse(retval.isEmpty());
-		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
-		assertTrue(retval.contains("ExpandedLicensing.ConjunctiveLicenseSet"));
-		assertTrue(retval.contains("SimpleLicensing.LicenseExpression"));
-		assertFalse(retval.contains("Core.Relationship"));
-	}
-
-	/**
-	 * Test method for {@link org.spdx.v3jsonldstore.JsonLDSerializer#JsonLDSerializer(com.fasterxml.jackson.databind.ObjectMapper, boolean, java.lang.String, org.spdx.storage.IModelStore)}.
-	 * @throws GenerationException 
-	 */
-	@Test
-	public void testGetAllElements() throws GenerationException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, SpdxModelFactory.getLatestSpecVersion(), modelStore);
-		List<String> retval = serializer.getElementTypes();
-		assertFalse(retval.isEmpty());
-		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
-		assertTrue(retval.contains("Core.Element"));
-		assertTrue(retval.contains("Core.Relationship"));
-		assertFalse(retval.contains("Core.CreationInfo"));
 	}
 
 	/**
@@ -168,6 +143,52 @@ public class JsonLDSerializerTest {
 		assertTrue(resultHash.isObject());
 		assertEquals("Hash", resultHash.get("type").asText());
 		assertEquals(hashValue, resultHash.get("hashValue").asText());
-		assertEquals(hashAlgorithm.toString(), resultHash.get("algorithm").asText());
+		assertEquals(hashAlgorithm.getLongName(), resultHash.get("algorithm").asText());
+		
+		assertTrue(serializer.getSchema().validate(result));
+	}
+	
+	/**
+	 * Test method for {@link org.spdx.v3jsonldstore.JsonLDSerializer#serialize()}.
+	 * @throws GenerationException 
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	@Test
+	public void testSerializeValidate() throws GenerationException, InvalidSPDXAnalysisException {
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, SpdxModelFactory.getLatestSpecVersion(), modelStore);
+
+		String prefix = "http://test.uri#";
+		String pkgUri = prefix + "PACKAGE";
+		String agentUri = prefix + "AGENT";
+		String createdName = "Creator";
+		String createdDate = "2024-07-22T16:01:15Z";
+		String specVersion = "3.0.0";
+		String pkgName = "Package Name";
+		HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
+		String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
+		
+		ModelCopyManager copyManager = new ModelCopyManager();
+		Agent createdBy = new Person(modelStore, agentUri, copyManager, true, prefix);
+		createdBy.setName(createdName);
+
+		
+		CreationInfo creationInfo = createdBy.createCreationInfo(modelStore.getNextId(IdType.Anonymous))
+				.setCreated(createdDate)
+				.setSpecVersion(specVersion)
+				.build();
+		creationInfo.getCreatedBys().add(createdBy);
+		createdBy.setCreationInfo(creationInfo);
+		SpdxPackage pkg = new SpdxPackage(modelStore, pkgUri, copyManager, true, prefix);
+		pkg.setCreationInfo(creationInfo);
+		pkg.setName(pkgName);
+		pkg.getVerifiedUsings().add(pkg.createHash(modelStore.getNextId(IdType.Anonymous))
+				.setAlgorithm(hashAlgorithm)
+				.setHashValue(hashValue)
+				.build());
+		
+		JsonNode result = serializer.serialize();
+		
+		
+		assertTrue(serializer.getSchema().validate(result));
 	}
 }
