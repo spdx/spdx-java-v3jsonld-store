@@ -87,30 +87,89 @@ public class JsonLDDeserializer {
 		}
 		// First pass, we'll just collect creationInfo JSON IDs and spec versions
 		Map<String, String> creationInfoIdToSpecVersion = new HashMap<>();
-		Map<String, JsonNode> graphIdToJsonNode = new HashMap<>();
 		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
 			JsonNode graphNode = iter.next();
 			Optional<String> type = typeNodeToType(graphNode.get("type"));
-			if (graphNode.has("spdxId")) {
-				graphIdToJsonNode.put(graphNode.get("spdxId").asText(), graphNode);
-			}
-			if (graphNode.has("@id")) {
-				graphIdToJsonNode.put(graphNode.get("@id").asText(), graphNode);
-			}
-			if (type.isPresent() && "Core.CreationInfo".equals(type.get())) {
-				if (graphNode.has("specVersion") && graphNode.has("@id")) {
-					creationInfoIdToSpecVersion.put(graphNode.get("@id").asText(), 
-							graphNode.get("specVersion").asText());
+			if (type.isPresent() && SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get())) {
+				String id = graphNode.has("spdxId") ? graphNode.get("spdxId").asText() : graphNode.get("@id").asText();
+				if (graphNode.has("specVersion") && Objects.nonNull(id)) {
+					creationInfoIdToSpecVersion.put(id, graphNode.get("specVersion").asText());
+				} else {
+					logger.warn("Unable to obtain spec version for a creation info: " + (Objects.isNull(id) ? "[no ID]" : id));
 				}
 			}
 		}
+		
+		// Second pass - create the top level objects in the graph
+		Map<String, TypedValue> graphIdToTypedValue = new HashMap<>();
+		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
+			JsonNode graphNode = iter.next();
+			String id = graphNode.has("spdxId") ? graphNode.get("spdxId").asText() : graphNode.get("@id").asText();
+			if (Objects.nonNull(id)) {
+				Optional<String> type = typeNodeToType(graphNode.get("type"));
+				if (type.isPresent()) {
+					// create the object so that it can be referenced during deserialization
+					String storeId;
+					if (id.startsWith("_:")) {
+						if (!jsonAnonToStoreAnon.containsKey(id)) {
+							jsonAnonToStoreAnon.put(id, modelStore.getNextId(IdType.Anonymous));
+						}
+						storeId = jsonAnonToStoreAnon.get(id);
+					} else {
+						storeId = id;
+					}
+					String specVersion = getSpecVersionFromNode(graphNode, creationInfoIdToSpecVersion, 
+							SpdxModelFactory.getLatestSpecVersion());
+					TypedValue tv = new TypedValue(storeId, type.get(), specVersion);
+					modelStore.create(tv);
+					graphIdToTypedValue.put(id, tv);
+				}
+			} else {
+				logger.warn("Missing ID for one of the SPDX objects in the graph");
+			}
+		}
+		
+		// 3rd pass - deserialize the properties
 		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
 			try {
 				deserializeCoreObject(iter.next(), SpdxModelFactory.getLatestSpecVersion(), 
-						creationInfoIdToSpecVersion, graphIdToJsonNode);
+						creationInfoIdToSpecVersion, graphIdToTypedValue);
 			} catch (GenerationException e) {
 				throw new InvalidSPDXAnalysisException("Unable to open schema file");
 			}
+		}
+	}
+	
+	/**
+	 * @param node SPDX object node
+	 * @param creationInfoIdToSpecVersion map of creation info IDs to spec versions
+	 * @param defaultSpecVersion default to use if no spec information could be found
+	 * @return
+	 */
+	String getSpecVersionFromNode(JsonNode node, Map<String, String> creationInfoIdToSpecVersion, String defaultSpecVersion) {
+		if (node.has("specVersion")) {
+			return node.get("specVersion").asText();
+		} else if (node.has("creationInfo")) {
+			JsonNode creationInfoNode = node.get("creationInfo");
+			if (creationInfoNode.isObject()) {
+				if (creationInfoNode.has("specVersion")) {
+					return creationInfoNode.get("specVersion").asText();
+				} else {
+					logger.warn("Missing creation info spec version");
+					return defaultSpecVersion;
+				}
+			} else {
+				String creationInfoId = creationInfoNode.asText();
+				if (creationInfoIdToSpecVersion.containsKey(creationInfoId)) {
+					return creationInfoIdToSpecVersion.get(creationInfoId);
+				} else {
+					logger.warn("Missing creation info spec version");
+					return defaultSpecVersion;
+				}
+			}
+		} else {
+			logger.warn("Missing creation info or spec version");
+			return defaultSpecVersion;
 		}
 	}
 
@@ -119,41 +178,47 @@ public class JsonLDDeserializer {
 	 * @param node Node containing an SPDX core object
 	 * @param defaultSpecVersion version of the spec to use if no creation information is available
 	 * @param creationInfoIdToSpecVersion Map of creation info IDs to spec versions
-	 * @param graphIdToJsonNode map of all Object URIs and IDs stored in the graph
+	 * @param graphIdToTypedValue map of top level Object URIs and IDs stored in the graph
 	 * @return TypedValue of the core object
 	 * @throws InvalidSPDXAnalysisException on errors converting to SPDX
 	 * @throws GenerationException on errors creating the schema
 	 */
 	private synchronized TypedValue deserializeCoreObject(JsonNode node, String defaultSpecVersion,
-			Map<String, String> creationInfoIdToSpecVersion, Map<String, JsonNode> graphIdToJsonNode) throws InvalidSPDXAnalysisException, GenerationException {
-		Optional<String> type = typeNodeToType(node.get("type"));
-		if (!type.isPresent()) {
-			logger.error("Missing type for core object " + node);
-			throw new InvalidSPDXAnalysisException("Missing type for core object " + node);
-		}
-		String id = node.has("@id") ? node.get("@id").asText() : 
+			Map<String, String> creationInfoIdToSpecVersion, Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException, GenerationException {
+		String jsonNodeId = node.has("@id") ? node.get("@id").asText() : 
 			node.has("spdxId") ? node.get("spdxId").asText() : null;
-		if (Objects.isNull(id)) {
-			id = modelStore.getNextId(IdType.Anonymous);
-		} else if (id.startsWith("_:")) {
-			if (!jsonAnonToStoreAnon.containsKey(id)) {
-				jsonAnonToStoreAnon.put(id, modelStore.getNextId(IdType.Anonymous));
-			}
-			id = jsonAnonToStoreAnon.get(id);
-		}
+		Optional<String> type;
+		String id;
 		String specVersion = defaultSpecVersion;
-		if (node.has("creationInfo")) {
-			JsonNode creationInfoNode = node.get("creationInfo");
-			if (creationInfoNode.isObject() && creationInfoNode.has("specVersion")) {
-				specVersion = creationInfoNode.get("specVersion").asText();
+		TypedValue tv;
+		if (graphIdToTypedValue.containsKey(jsonNodeId)) {
+			// already created
+			tv = graphIdToTypedValue.get(jsonNodeId);
+			id = tv.getObjectUri();
+			type = Optional.of(tv.getType());
+			specVersion = tv.getSpecVersion();
+		} else {
+			// Need to create the object
+			if (Objects.isNull(jsonNodeId)) {
+				id = modelStore.getNextId(IdType.Anonymous);
+			} else if (jsonNodeId.startsWith("_:")) {
+				if (!jsonAnonToStoreAnon.containsKey(jsonNodeId)) {
+					jsonAnonToStoreAnon.put(jsonNodeId, modelStore.getNextId(IdType.Anonymous));
+				}
+				id = jsonAnonToStoreAnon.get(jsonNodeId);
 			} else {
-				specVersion = creationInfoIdToSpecVersion.getOrDefault(creationInfoNode.asText(), specVersion);
+				id = jsonNodeId;
 			}
-		} else if (SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get()) && node.has("specVersion")) {
-			specVersion = node.get("specVersion").asText();
+			type = typeNodeToType(node.get("type"));
+			if (!type.isPresent()) {
+				logger.error("Missing type for core object " + node);
+				throw new InvalidSPDXAnalysisException("Missing type for core object " + node);
+			}
+			specVersion = getSpecVersionFromNode(node, creationInfoIdToSpecVersion, defaultSpecVersion);
+			tv = new TypedValue(id, type.get(), specVersion);
+			modelStore.create(tv);
 		}
-		TypedValue tv = new TypedValue(id, type.get(), specVersion);
-		modelStore.create(tv);
+
 		for (Iterator<Entry<String, JsonNode>> fields = node.fields(); fields.hasNext(); ) {
 			Entry<String, JsonNode> field = fields.next();
 			if (!NON_PROPERTY_FIELD_NAMES.contains(field.getKey())) {
@@ -170,11 +235,11 @@ public class JsonLDDeserializer {
 				if (field.getValue().isArray()) {
 					for (Iterator<JsonNode> elements = field.getValue().elements(); elements.hasNext(); ) {
 						modelStore.addValueToCollection(id, property, toStoredObject(field.getKey(), elements.next(), specVersion,
-								creationInfoIdToSpecVersion, graphIdToJsonNode));
+								creationInfoIdToSpecVersion, graphIdToTypedValue));
 					}
 				} else {
 					modelStore.setValue(id, property, toStoredObject(field.getKey(), field.getValue(), specVersion, 
-							creationInfoIdToSpecVersion, graphIdToJsonNode));
+							creationInfoIdToSpecVersion, graphIdToTypedValue));
 				}
 			}
 		}
@@ -186,13 +251,13 @@ public class JsonLDDeserializer {
 	 * @param value JSON node containing an object to store in the modelStore
 	 * @param specVersion version of the spec to use if no creation information is available
 	 * @param creationInfoIdToSpecVersion Map of creation info IDs to spec versions
-	 * @param graphIdToJsonNode map of all object URIs and IDs stored in the graph
+	 * @param graphIdToTypedValue map of top level Object URIs and IDs stored in the graph
 	 * @return an object suitable for storing in the model store
 	 * @throws InvalidSPDXAnalysisException on invalid SPDX data
 	 * @throws GenerationException on errors obtaining the schema
 	 */
 	private Object toStoredObject(String propertyName, JsonNode value, String specVersion,
-			Map<String, String> creationInfoIdToSpecVersion, Map<String, JsonNode> graphIdToJsonNode) throws InvalidSPDXAnalysisException, GenerationException {
+			Map<String, String> creationInfoIdToSpecVersion, Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException, GenerationException {
 		Optional<String> propertyType = getOrCreateSchema(specVersion).getPropertyType(propertyName);
 		switch (value.getNodeType()) {
 			case ARRAY:
@@ -218,9 +283,9 @@ public class JsonLDDeserializer {
 					throw new InvalidSPDXAnalysisException("Type mismatch.  Expecting "+propertyType+" but was a JSON Boolean");
 				}
 			}
-			case OBJECT: return deserializeCoreObject(value, specVersion, creationInfoIdToSpecVersion, graphIdToJsonNode);
+			case OBJECT: return deserializeCoreObject(value, specVersion, creationInfoIdToSpecVersion, graphIdToTypedValue);
 			case STRING:
-				return jsonStringToStoredValue(propertyName, value, specVersion, graphIdToJsonNode);
+				return jsonStringToStoredValue(propertyName, value, specVersion, graphIdToTypedValue);
 			case BINARY:
 			case MISSING:
 			case POJO:
@@ -231,12 +296,13 @@ public class JsonLDDeserializer {
 	/**
 	 * @param propertyName name of property in the JSON schema
 	 * @param jsonValue string value
-	 * @param graphIdToJsonNode set of object URIs and IDs stored in the graph
+	 * @param graphIdToTypedValue map of top level Object URIs and IDs stored in the graph
 	 * @return appropriate SPDX object based on the type associated with the propertyName
 	 * @throws InvalidSPDXAnalysisException on invalid SPDX data
 	 * @throws GenerationException on error getting JSON schemas
 	 */
-	private Object jsonStringToStoredValue(String propertyName, JsonNode jsonValue, String specVersion, Map<String, JsonNode> graphIdToJsonNode) throws InvalidSPDXAnalysisException, GenerationException {
+	private Object jsonStringToStoredValue(String propertyName, JsonNode jsonValue, String specVersion, 
+			Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException, GenerationException {
 		// A JSON string can represent an Element, another object (like CreatingInfo), an enumeration, an
 		// individual value URL, an external URI
 		JsonLDSchema schema = getOrCreateSchema(specVersion);
@@ -246,16 +312,8 @@ public class JsonLDDeserializer {
 			return jsonValue.asText();
 		} else if ("@id".equals(propertyType.get())) {
 			// we can assume this refers to an SPDX object
-			if (graphIdToJsonNode.containsKey(jsonValue.asText())) {
-				JsonNode typeNode = graphIdToJsonNode.get(jsonValue.asText()).get("type");
-				if (Objects.isNull(typeNode)) {
-					throw new InvalidSPDXAnalysisException("Missing type for ID "+jsonValue.asText());
-				}
-				Optional<String> type = typeNodeToType(typeNode);
-				if (!type.isPresent()) {
-					throw new InvalidSPDXAnalysisException("Missing type in schema for ID "+jsonValue.asText());
-				}
-				return new TypedValue(jsonValue.asText(), type.get(), specVersion);
+			if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
+				return graphIdToTypedValue.get(jsonValue.asText());
 			} else {
 				// either an individual URI or an external element
 				return new SimpleUriValue(jsonValue.asText());
@@ -358,13 +416,25 @@ public class JsonLDDeserializer {
 	 * @throws GenerationException on errors with the JSON schemas
 	 */
 	public TypedValue deserializeElement(JsonNode elementNode) throws GenerationException, InvalidSPDXAnalysisException {
-		Map<String, JsonNode> mapIdToJsonNode = new HashMap<>();
-		String id = elementNode.has("@id") ? elementNode.get("@id").asText() : 
-			elementNode.has("spdxId") ? elementNode.get("spdxId").asText() : null;
+		Map<String, TypedValue> mapIdToTypedValue = new HashMap<>();
+		Map<String, String> creationInfoIdToSpecVersion = new HashMap<>();
+		
+		String id = elementNode.has("spdxId") ? elementNode.get("spdxId").asText() : elementNode.get("@id").asText();
 		if (Objects.nonNull(id)) {
-			mapIdToJsonNode.put(id, elementNode);
+			if (id.startsWith("_:")) {
+				throw new InvalidSPDXAnalysisException("Can not serialize an anonymous (blank) element");
+			}
+			Optional<String> type = typeNodeToType(elementNode.get("type"));
+			if (!type.isPresent()) {
+				throw new InvalidSPDXAnalysisException("Missing type for element "+id);
+			}
+			String specVersion = getSpecVersionFromNode(elementNode, creationInfoIdToSpecVersion, 
+					SpdxModelFactory.getLatestSpecVersion());
+			TypedValue tv = new TypedValue(id, type.get(), specVersion);
+			modelStore.create(tv);
+			mapIdToTypedValue.put(id, tv);
 		}
-		return deserializeCoreObject(elementNode, SpdxModelFactory.getLatestSpecVersion(), new HashMap<>(), mapIdToJsonNode);
+		return deserializeCoreObject(elementNode, SpdxModelFactory.getLatestSpecVersion(), creationInfoIdToSpecVersion, mapIdToTypedValue);
 	}
 
 }
