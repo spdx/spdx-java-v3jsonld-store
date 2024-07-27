@@ -168,7 +168,6 @@ public class JsonLDDeserializer {
 				}
 			}
 		} else {
-			logger.warn("Missing creation info or spec version");
 			return defaultSpecVersion;
 		}
 	}
@@ -314,9 +313,11 @@ public class JsonLDDeserializer {
 			// we can assume this refers to an SPDX object
 			if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
 				return graphIdToTypedValue.get(jsonValue.asText());
-			} else {
+			} else if (!jsonValue.asText().startsWith("_:")) {
 				// either an individual URI or an external element
 				return new SimpleUriValue(jsonValue.asText());
+			} else {
+				throw new InvalidSPDXAnalysisException("Can not determine property type for "+jsonValue.asText());
 			}
 		} else if ("@vocab".equals(propertyType.get())) {
 			// we can assume that all @vocab types are enums
