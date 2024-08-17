@@ -22,11 +22,14 @@ import org.slf4j.LoggerFactory;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.SimpleUriValue;
 import org.spdx.core.TypedValue;
+import org.spdx.library.ListedLicenses;
+import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.PropertyDescriptor;
+import org.spdx.storage.listedlicense.SpdxListedLicenseModelStore;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -65,6 +68,7 @@ public class JsonLDDeserializer {
 	}
 	
 	private IModelStore modelStore;
+	private ModelCopyManager copyManager;
 	private ConcurrentMap<String, String> jsonAnonToStoreAnon = new ConcurrentHashMap<>();
 	private ConcurrentMap<String, JsonLDSchema> versionToSchema = new ConcurrentHashMap<>();
 
@@ -73,6 +77,7 @@ public class JsonLDDeserializer {
 	 */
 	public JsonLDDeserializer(IModelStore modelStore) {
 		this.modelStore = modelStore;
+		this.copyManager = new ModelCopyManager();
 	}
 
 	/**
@@ -313,6 +318,17 @@ public class JsonLDDeserializer {
 			// we can assume this refers to an SPDX object
 			if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
 				return graphIdToTypedValue.get(jsonValue.asText());
+			} else if (jsonValue.asText().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE)) {
+				String licenseOrExceptionId = SpdxListedLicenseModelStore.objectUriToLicenseOrExceptionId(jsonValue.asText());
+				if (ListedLicenses.getListedLicenses().isSpdxListedLicenseId(licenseOrExceptionId) ||
+						ListedLicenses.getListedLicenses().isSpdxListedExceptionId(licenseOrExceptionId)) {
+					//TODO: copy over the license into this store
+					return copyManager.copy(modelStore, ListedLicenses.getListedLicenses().getLicenseModelStore(),
+							jsonValue.asText(), specVersion, null);
+				} else {
+					// treat as an external element
+					return new SimpleUriValue(jsonValue.asText());
+				}
 			} else if (!jsonValue.asText().startsWith("_:")) {
 				// either an individual URI or an external element
 				return new SimpleUriValue(jsonValue.asText());

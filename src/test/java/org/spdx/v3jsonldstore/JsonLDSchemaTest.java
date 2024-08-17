@@ -17,7 +17,7 @@ import java.util.Optional;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.spdx.library.model.v3.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
 import org.spdx.storage.PropertyDescriptor;
 
 import net.jimblackler.jsonschemafriend.GenerationException;

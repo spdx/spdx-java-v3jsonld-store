@@ -15,11 +15,11 @@ import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3.core.Agent;
-import org.spdx.library.model.v3.core.CreationInfo;
-import org.spdx.library.model.v3.core.HashAlgorithm;
-import org.spdx.library.model.v3.core.Person;
-import org.spdx.library.model.v3.software.SpdxPackage;
+import org.spdx.library.model.v3_0_0.core.Agent;
+import org.spdx.library.model.v3_0_0.core.CreationInfo;
+import org.spdx.library.model.v3_0_0.core.HashAlgorithm;
+import org.spdx.library.model.v3_0_0.core.Person;
+import org.spdx.library.model.v3_0_0.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -62,7 +62,7 @@ public class JsonLDSerializerTest {
 	 */
 	@Test
 	public void testSerialize() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, SpdxModelFactory.getLatestSpecVersion(), modelStore);
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
 
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
@@ -155,7 +155,7 @@ public class JsonLDSerializerTest {
 	 */
 	@Test
 	public void testSerializeValidate() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, SpdxModelFactory.getLatestSpecVersion(), modelStore);
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
 
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";

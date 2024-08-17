@@ -26,9 +26,9 @@ import org.spdx.core.TypedValue;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v2.license.AnyLicenseInfo;
-import org.spdx.library.model.v3.SpdxConstantsV3;
-import org.spdx.library.model.v3.core.CreationInfo;
-import org.spdx.library.model.v3.core.Element;
+import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_0.core.CreationInfo;
+import org.spdx.library.model.v3_0_0.core.Element;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IModelStoreLock;
 import org.spdx.storage.IModelStore.IdType;
@@ -140,15 +140,17 @@ public class JsonLDSerializer {
 	private boolean pretty;
 	private String specVersion;
 	private JsonLDSchema jsonLDSchema;
+	private boolean useExternalListedElements;
 
 	/**
 	 * @param jsonMapper mapper to use for serialization
 	 * @param pretty true if the format is to be more verbose
+	 * @param useExternalListedElements if true, don't serialize any listed licenses or exceptions - treat them as external 
 	 * @param specVersion SemVer representation of the SPDX spec version
 	 * @param modelStore store where the SPDX elements are stored
 	 * @throws GenerationException  if the JSON schema is not found or is not valid
 	 */
-	public JsonLDSerializer(ObjectMapper jsonMapper, boolean pretty, String specVersion,
+	public JsonLDSerializer(ObjectMapper jsonMapper, boolean pretty, boolean useExternalListedElements, String specVersion,
 			IModelStore modelStore) throws GenerationException {
 		Objects.requireNonNull(jsonMapper, "JSON Mapper is a required field");
 		Objects.requireNonNull(modelStore, "Model store is a required field");
@@ -157,6 +159,7 @@ public class JsonLDSerializer {
 		this.pretty = pretty;
 		this.modelStore = modelStore;
 		this.specVersion = specVersion;
+		this.useExternalListedElements = useExternalListedElements;
 		jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
 				String.format("spdx-context-v%s.jsonld",  specVersion));
 	}
@@ -201,7 +204,10 @@ public class JsonLDSerializer {
 						logger.warn("SPDX element has a non-URI ID: "+element.getObjectUri() +
 								".  Converting to URI " + serializedId + ".");
 					}
-					graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
+					if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
+						graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
+					}
+					
 				}
 			}
 			graph.sort(NODE_COMPARATOR);

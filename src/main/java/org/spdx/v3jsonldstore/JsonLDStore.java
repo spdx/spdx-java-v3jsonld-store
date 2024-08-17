@@ -41,6 +41,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 	static final ObjectMapper JSON_MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 	
 	boolean pretty = true;
+	private boolean useExternalListedElements = false;
 	
 	/**
 	 * @param baseStore underlying store to use
@@ -76,7 +77,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 			throws InvalidSPDXAnalysisException, IOException {
 		JsonLDSerializer serializer;
 		try {
-			serializer = new JsonLDSerializer(JSON_MAPPER, pretty, SpdxModelFactory.getLatestSpecVersion(), this);
+			serializer = new JsonLDSerializer(JSON_MAPPER, pretty, useExternalListedElements, SpdxModelFactory.getLatestSpecVersion(), this);
 		} catch (GenerationException e) {
 			throw new InvalidSPDXAnalysisException("Unable to reate JSON LD serializer", e);
 		}
@@ -155,6 +156,13 @@ public class JsonLDStore extends ExtendedSpdxStore
 			}
 		}
 		return retval;
+	}
+
+	/**
+	 * @param useExternalListedElements if true, don't serialize any listed licenses or exceptions - treat them as external
+	 */
+	public void setUseExternalListedElements(boolean useExternalListedElements) {
+		this.useExternalListedElements  = useExternalListedElements;
 	}
 
 }
