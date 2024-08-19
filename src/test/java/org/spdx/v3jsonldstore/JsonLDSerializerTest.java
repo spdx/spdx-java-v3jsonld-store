@@ -8,6 +8,7 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.junit.After;
 import org.junit.Before;
@@ -312,6 +313,7 @@ public class JsonLDSerializerTest {
 		SpdxFile file2 = pkg.createSpdxFile(fileUri2)
 				.setName(fileName2)
 				.build();
+		@SuppressWarnings("unused")
 		SpdxFile file3 = pkg.createSpdxFile(fileUri3)
 				.setName(fileName3)
 				.build();
@@ -359,41 +361,49 @@ public class JsonLDSerializerTest {
 		assertEquals(agentUri, resultCreatedBys.get(0).asText());
 		String creationInfoId = resultCreationInfo.get("@id").asText();
 		
-		//TODO - Stopped here - need to change the following
 		assertEquals(5, resultElements.size());
-		// "urn:my:document"
-		// "urn:this:is:relationship"
-		// file2
-		// file1
-		// "http://test.uri#PACKAGE"
-		
-		
-		JsonNode resultCreatedBy;
-		JsonNode resultPkg;
-		if (resultElements.get(0).get("type").asText().equals("Person")) {
-			resultCreatedBy = resultElements.get(0);
-			resultPkg = resultElements.get(1);
-		} else {
-			resultCreatedBy = resultElements.get(1);
-			resultPkg = resultElements.get(0);
+		JsonNode docResult = null;
+		JsonNode relationshipResult = null;
+		JsonNode file1Result = null;
+		JsonNode file2Result = null;
+		JsonNode file3Result = null;
+		JsonNode resultPkg = null;
+		JsonNode resultExternal = null;
+		for (JsonNode elementResult:resultElements) {
+			if (documentUri.equals(elementResult.get("spdxId").asText())) {
+				docResult = elementResult;
+			}
+			if (relationshipUri.equals(elementResult.get("spdxId").asText())) {
+				relationshipResult = elementResult;
+			}
+			if (fileUri1.equals(elementResult.get("spdxId").asText())) {
+				file1Result = elementResult;
+			}
+			if (fileUri2.equals(elementResult.get("spdxId").asText())) {
+				file2Result = elementResult;
+			}
+			if (pkgUri.equals(elementResult.get("spdxId").asText())) {
+				resultPkg = elementResult;
+			} if (fileUri3.equals(elementResult.get("spdxId").asText())) {
+				file3Result = elementResult;
+			} if (externalElementUri.equals(elementResult.get("spdxId").asText())) {
+				resultExternal = elementResult;
+			}
 		}
-		assertEquals(creationInfoId, resultCreatedBy.get("creationInfo").asText());
-		assertEquals(agentUri, resultCreatedBy.get("spdxId").asText());
-		assertEquals("Person", resultCreatedBy.get("type").asText());
-		assertEquals(createdName, resultCreatedBy.get("name").asText());
-		
 		assertEquals(creationInfoId, resultPkg.get("creationInfo").asText());
-		assertEquals(pkgUri, resultPkg.get("spdxId").asText());
 		assertEquals(pkgName, resultPkg.get("name").asText());
-		List<JsonNode> resultVerfiedUsings = new ArrayList<>();
-		resultPkg.get("verifiedUsing").elements().forEachRemaining(node -> resultVerfiedUsings.add(node));
-		assertEquals(1, resultVerfiedUsings.size());
-		JsonNode resultHash = resultVerfiedUsings.get(0);
-		assertTrue(resultHash.isObject());
-		assertEquals("Hash", resultHash.get("type").asText());
-		assertEquals(hashValue, resultHash.get("hashValue").asText());
-		assertEquals(hashAlgorithm.getLongName(), resultHash.get("algorithm").asText());
-		
-		assertTrue(serializer.getSchema().validate(result));
+		assertTrue(Objects.nonNull(docResult));
+		assertTrue(Objects.nonNull(file2Result));
+		assertEquals(fileName2, file2Result.get("name").asText());
+		assertTrue(Objects.nonNull(file1Result));
+		assertEquals(fileName1, file1Result.get("name").asText());
+		assertTrue(Objects.isNull(file3Result));
+		assertTrue(Objects.nonNull(relationshipResult));
+		assertEquals(pkgUri, relationshipResult.get("from").asText());
+		assertTrue(relationshipResult.get("to").isArray());
+		assertEquals(1, relationshipResult.withArrayProperty("to").size());
+		assertEquals(externalElementUri, relationshipResult.withArrayProperty("to").get(0).asText());
+		assertEquals(RelationshipType.CONTAINS.getLongName(), relationshipResult.get("relationshipType").asText());
+		assertTrue(Objects.isNull(resultExternal));
 	}
 }
