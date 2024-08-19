@@ -8,13 +8,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +33,7 @@ import org.spdx.library.model.v2.license.AnyLicenseInfo;
 import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
 import org.spdx.library.model.v3_0_0.core.CreationInfo;
 import org.spdx.library.model.v3_0_0.core.Element;
+import org.spdx.library.model.v3_0_0.core.SpdxDocument;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IModelStoreLock;
 import org.spdx.storage.IModelStore.IdType;
@@ -165,19 +170,178 @@ public class JsonLDSerializer {
 	}
 
 	/**
+	 * @param objectToSerialize optional SPDX Document or single element to serialize 
 	 * @return the root node of the JSON serialization
-	 * @throws InvalidSPDXAnalysisException 
+	 * @throws InvalidSPDXAnalysisException on errors retrieveing the information for serialization
 	 */
-	public JsonNode serialize() throws InvalidSPDXAnalysisException {
+	public JsonNode serialize(@Nullable CoreModelObject objectToSerialize) throws InvalidSPDXAnalysisException {
+		if (Objects.isNull(objectToSerialize)) {
+			return serializeAllObjects();
+		} else if (objectToSerialize instanceof SpdxDocument) {
+			return serializeSpdxDocument((SpdxDocument)objectToSerialize);
+		} else if (objectToSerialize instanceof Element) {
+			return serializeElement((Element)objectToSerialize);
+		} else {
+			logger.error("Unsupported type to serialize: "+objectToSerialize.getClass().toString());
+			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass().toString());
+		}
+		
+	}
+
+	/**
+	 * Serialize SPDX document metadata and ALL elements listed in the root + all elements listed in the elements list
+	 * all references to SPDX elements not in the root or elements lists will be externa
+	 * @param spdxDocument SPDX document to utilize
+	 * @return the root node of the JSON serialization
+	 * @throws InvalidSPDXAnalysisException on errors retrieveing the information for serialization
+	 */
+	private JsonNode serializeSpdxDocument(SpdxDocument spdxDocument) throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
 		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
+		List<JsonNode> graph = new ArrayList<>();
+		Set<Element> elementsToCopy = new HashSet<>();
+		IModelStoreLock lock = modelStore.enterCriticalSection(false);
+		try {
+			// Collect all the elements we want to copy
+			spdxDocument.getRootElements().forEach(element -> elementsToCopy.add(element));
+			spdxDocument.getElements().forEach(element -> elementsToCopy.add(element));
+			// collect all the creation infos
+			Set<CreationInfo> creationInfos = new HashSet<>();
+			for (Element element:elementsToCopy) {
+				creationInfos.add(element.getCreationInfo());
+			}
+			int creationIndex = 0;
+			for (CreationInfo creationInfo:creationInfos) {
+				String serializedId = "_:creationInfo_" + creationIndex++;
+				idToSerializedId.put(creationInfo.getObjectUri(), serializedId);
+				graph.add(modelObjectToJsonNode(creationInfo, serializedId, idToSerializedId));
+			}
+			// Serialize only what we need of the SPDX document
+			String documentSpdxId = spdxDocument.getObjectUri();
+			if (modelStore.isAnon(documentSpdxId)) {
+				String anonId = documentSpdxId;
+				documentSpdxId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
+				idToSerializedId.put(anonId, documentSpdxId);
+				logger.warn("SPDX element has a non-URI ID: "+spdxDocument.getObjectUri() +
+						".  Converting to URI " + documentSpdxId + ".");
+			}
+			graph.add(spdxDocumentToJsonNode(spdxDocument, documentSpdxId, idToSerializedId));
+			for (String type:jsonLDSchema.getElementTypes()) {
+				for (Element element:elementsToCopy) {
+					if (type.equals(element.getType())) {
+						String serializedId = element.getObjectUri();
+						if (modelStore.isAnon(serializedId)) {
+							String anonId = serializedId;
+							serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
+							idToSerializedId.put(anonId, serializedId);
+							logger.warn("SPDX element has a non-URI ID: "+element.getObjectUri() +
+									".  Converting to URI " + serializedId + ".");
+						}
+						if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
+							graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
+						}
+					}
+				}
+			}
+			graph.sort(NODE_COMPARATOR);
+			ArrayNode graphNodes = jsonMapper.createArrayNode();
+			graphNodes.addAll(graph);
+			root.set("@graph", graphNodes);
+			return root;
+		} finally {
+			modelStore.leaveCriticalSection(lock);
+		}
+	}
+
+	/**
+	 * Serialize on the required portions of the SPDX document
+	 * @param spdxDocument SPDX document to serialize
+	 * @param serializedId ID used in the serialization
+	 * @param idToSerializedId partial Map of IDs in the modelStore to the IDs used in the serialization
+	 * @return a JSON node representation of the spdxDocument
+	 * @throws InvalidSPDXAnalysisException on any SPDX related error
+	 */
+	private JsonNode spdxDocumentToJsonNode(SpdxDocument spdxDocument,
+			String serializedId, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
+		ObjectNode retval = jsonMapper.createObjectNode();
+		retval.set("spdxId", new TextNode(serializedId));
+		retval.set("type", new TextNode(typeToJsonType(SpdxConstantsV3.CORE_SPDX_DOCUMENT)));
+		for (PropertyDescriptor prop:spdxDocument.getPropertyValueDescriptors()) {
+			if (SpdxConstantsV3.PROP_ELEMENT.equals(prop)) {
+				// skip the elements property - it will in the elements in the graph
+			} else if (SpdxConstantsV3.PROP_NAMESPACE_MAP.equals(prop)) {
+				// TODO: Add this to the context in the future once it is supported in the schema
+			} else {
+				if (spdxDocument.getModelStore().isCollectionProperty(spdxDocument.getObjectUri(), prop)) {
+					ArrayNode an = jsonMapper.createArrayNode();
+					Iterator<Object> iter = spdxDocument.getModelStore().listValues(spdxDocument.getObjectUri(), prop);
+					while (iter.hasNext()) {
+						an.add(objectToJsonNode(iter.next(), spdxDocument.getModelStore(), idToSerializedId));
+					}
+					retval.set(propertyToJsonLdPropName(prop), an);
+				} else {
+					Optional<Object> val = spdxDocument.getModelStore().getValue(spdxDocument.getObjectUri(), prop);
+					if (val.isPresent()) {
+						retval.set(propertyToJsonLdPropName(prop), objectToJsonNode(val.get(), spdxDocument.getModelStore(), idToSerializedId));
+					}
+				}
+			}
+		}
+		return retval;
+	}
+
+	/**
+	 * Serializes a single SPDX element - all references to other elements will be external element references
+	 * @param objectToSerialize object to serialize
+	 * @return the root of the serialized form of the objectToSerialize
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private JsonNode serializeElement(Element objectToSerialize) throws InvalidSPDXAnalysisException {
+		ObjectNode root = jsonMapper.createObjectNode();
+		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
+		Map<String, String> idToSerializedId = new HashMap<>();
 		// collect all the creation infos
+		List<JsonNode> graph = new ArrayList<>();
+		IModelStoreLock lock = modelStore.enterCriticalSection(true);
+		try {
+			String serializedId = objectToSerialize.getObjectUri();
+			if (modelStore.isAnon(serializedId)) {
+				String anonId = serializedId;
+				serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
+				idToSerializedId.put(anonId, serializedId);
+				logger.warn("SPDX element has a non-URI ID: "+objectToSerialize.getObjectUri() +
+						".  Converting to URI " + serializedId + ".");
+			}
+			if (!(useExternalListedElements && objectToSerialize.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
+				graph.add(modelObjectToJsonNode(objectToSerialize, serializedId, idToSerializedId));
+			}
+			graph.sort(NODE_COMPARATOR);
+			ArrayNode graphNodes = jsonMapper.createArrayNode();
+			graphNodes.addAll(graph);
+			root.set("@graph", graphNodes);
+			return root;
+		} finally {
+			modelStore.leaveCriticalSection(lock);
+		}
+	}
+
+	/**
+	 * Serialize all the objects stored in the model store
+	 * @return the root node of the JSON serialization
+	 * @throws InvalidSPDXAnalysisException on errors retrieveing the information for serialization
+	 */
+	private JsonNode serializeAllObjects() throws InvalidSPDXAnalysisException {
+		ObjectNode root = jsonMapper.createObjectNode();
+		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
+		
+		Map<String, String> idToSerializedId = new HashMap<>();
 		ModelCopyManager copyManager = new ModelCopyManager();
 		List<JsonNode> graph = new ArrayList<>();
 		IModelStoreLock lock = modelStore.enterCriticalSection(true);
 		try {
+			// collect all the creation infos
 			@SuppressWarnings("unchecked")
 			List<CreationInfo> allCreationInfos = (List<CreationInfo>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager, 
 					SpdxConstantsV3.CORE_CREATION_INFO, null, null).collect(Collectors.toList());
@@ -188,9 +352,6 @@ public class JsonLDSerializer {
 				idToSerializedId.put(creationInfo.getObjectUri(), serializedId);
 				graph.add(modelObjectToJsonNode(creationInfo, serializedId, idToSerializedId));
 			}
-			
-			//TODO: Create an SPDX document to wrap the serialized data
-			//TODO: Keep track of external SPDX elements and add them to an external in the SPDX document
 			for (String type:jsonLDSchema.getElementTypes()) {
 				@SuppressWarnings("unchecked")
 				List<Element> elements = (List<Element>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager, 
@@ -207,7 +368,6 @@ public class JsonLDSerializer {
 					if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
 						graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
 					}
-					
 				}
 			}
 			graph.sort(NODE_COMPARATOR);
@@ -307,7 +467,7 @@ public class JsonLDSerializer {
 		if (jsonLDSchema.getElementTypes().contains(tv.getType())) {
 			// Just return the object URI since the element will be in the @graph
 			return new TextNode(idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
-		} else if (SpdxConstantsV3.CORE_CREATION_INFO.equals(tv.getType()))  {
+		} else if (SpdxConstantsV3.CORE_CREATION_INFO.equals(tv.getType()) && idToSerializedId.containsKey(tv.getObjectUri()))  {
 			return new TextNode (idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
 		} else if (pretty && jsonLDSchema.getAnyLicenseInfoTypes().contains(tv.getType())) {
 			AnyLicenseInfo licenseInfo = (AnyLicenseInfo)ModelRegistry.getModelRegistry().inflateModelObject(modelStore, tv.getObjectUri(), tv.getType(), new ModelCopyManager(), tv.getSpecVersion(), false, "");

@@ -4,11 +4,13 @@
  */
 package org.spdx.v3jsonldstore;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -83,9 +85,11 @@ public class JsonLDDeserializer {
 	/**
 	 * Deserializes the JSON-LD graph into the modelStore
 	 * @param graph Graph to deserialize
+	 * @return list of non-anonomous typed value Elements found in the graph nodes
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	public void deserializeGraph(JsonNode graph) throws InvalidSPDXAnalysisException {
+	public List<TypedValue> deserializeGraph(JsonNode graph) throws InvalidSPDXAnalysisException {
+		List<TypedValue> nonAnonGraphItems = new ArrayList<>();
 		if (!graph.isArray()) {
 			logger.error("Invalid type for deserializeGraph - must be an array");
 			throw new InvalidSPDXAnalysisException("Invalid type for deserializeGraph - must be an array");
@@ -128,6 +132,9 @@ public class JsonLDDeserializer {
 					TypedValue tv = new TypedValue(storeId, type.get(), specVersion);
 					modelStore.create(tv);
 					graphIdToTypedValue.put(id, tv);
+					if (!modelStore.isAnon(id)) {
+						nonAnonGraphItems.add(tv);
+					}
 				}
 			} else {
 				logger.warn("Missing ID for one of the SPDX objects in the graph");
@@ -143,6 +150,7 @@ public class JsonLDDeserializer {
 				throw new InvalidSPDXAnalysisException("Unable to open schema file");
 			}
 		}
+		return nonAnonGraphItems;
 	}
 	
 	/**

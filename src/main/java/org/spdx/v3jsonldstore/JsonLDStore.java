@@ -8,15 +8,31 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spdx.core.CoreModelObject;
 import org.spdx.core.InvalidSPDXAnalysisException;
+import org.spdx.core.TypedValue;
 import org.spdx.library.SpdxModelFactory;
+import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_0.core.Element;
+import org.spdx.library.model.v3_0_0.core.ExternalElement;
+import org.spdx.library.model.v3_0_0.core.ExternalMap;
+import org.spdx.library.model.v3_0_0.core.SpdxDocument;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.ISerializableModelStore;
+import org.spdx.storage.PropertyDescriptor;
 import org.spdx.storage.simple.ExtendedSpdxStore;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -73,7 +89,14 @@ public class JsonLDStore extends ExtendedSpdxStore
 		this.pretty = pretty;
 	}
 
+	@Override
 	public void serialize(OutputStream stream)
+			throws InvalidSPDXAnalysisException, IOException {
+		serialize(stream, null);
+	}
+	
+	@Override 
+	public void serialize(OutputStream stream, @Nullable CoreModelObject objectToSerialize)
 			throws InvalidSPDXAnalysisException, IOException {
 		JsonLDSerializer serializer;
 		try {
@@ -81,7 +104,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 		} catch (GenerationException e) {
 			throw new InvalidSPDXAnalysisException("Unable to reate JSON LD serializer", e);
 		}
-		JsonNode output = serializer.serialize();
+		JsonNode output = serializer.serialize(objectToSerialize);
 		JsonGenerator jgen = null;
 		try {
 			jgen = JSON_MAPPER.getFactory().createGenerator(stream);
@@ -96,7 +119,8 @@ public class JsonLDStore extends ExtendedSpdxStore
 		}
 	}
 
-	public void deSerialize(InputStream stream, boolean overwrite)
+	@Override
+	public SpdxDocument deSerialize(InputStream stream, boolean overwrite)
 			throws InvalidSPDXAnalysisException, IOException {
 		Objects.requireNonNull(stream, "Input stream must not be null");
 		JsonNode root = JSON_MAPPER.readTree(stream);
@@ -122,12 +146,95 @@ public class JsonLDStore extends ExtendedSpdxStore
 		}
 		JsonNode graph = root.get("@graph");
 		if (Objects.nonNull(graph)) {
-			deserializer.deserializeGraph(graph);
+			List<TypedValue> graphElements = deserializer.deserializeGraph(graph);
+			return elementsToSpdxDocument(graphElements);
 		} else {
 			try {
-				deserializer.deserializeElement(root);
+				TypedValue element = deserializer.deserializeElement(root);
+				return elementsToSpdxDocument(Arrays.asList(new TypedValue[] {element}));
 			} catch (GenerationException e) {
 				throw new InvalidSPDXAnalysisException("Error opening or reading SPDX 3.X schema",e);
+			}
+		}
+	}
+
+
+	/**
+	 * @param graphElements elements found in the serialized graph
+	 * @return an SPDX document representing the serialization
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private SpdxDocument elementsToSpdxDocument(List<TypedValue> graphElements) throws InvalidSPDXAnalysisException {
+		List<TypedValue> existingSpdxDocument = new ArrayList<>();
+		graphElements.forEach(tv -> {
+			if (SpdxConstantsV3.CORE_SPDX_DOCUMENT.equals(tv.getType())) {
+				existingSpdxDocument.add(tv);
+			}
+		});
+		SpdxDocument retval;
+		if (existingSpdxDocument.size() == 1) {
+			retval = (SpdxDocument)SpdxModelFactory.inflateModelObject(this, existingSpdxDocument.get(0).getObjectUri(),
+						SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, existingSpdxDocument.get(0).getSpecVersion(),
+						 false, null); 
+		} else {
+			
+			String documentObjectUri = "urn:spdx-document:" +  UUID.randomUUID().toString();
+			retval = (SpdxDocument)SpdxModelFactory.inflateModelObject(this, documentObjectUri,
+					SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, SpdxModelFactory.getLatestSpecVersion(),
+					 true, null); 
+		}
+		Collection<Element> elements = retval.getElements();
+		elements.clear();
+		Collection<Element> roots = retval.getRootElements();
+		boolean addAllToRoot = roots.isEmpty();
+		Set<String> referencedExternalElementUris = new HashSet<>();
+		Set<String> alreadySearched = new HashSet<>();
+		for (TypedValue element:graphElements) {
+			if (!retval.getObjectUri().equals(element.getObjectUri())) {
+				CoreModelObject mo = SpdxModelFactory.inflateModelObject(this, element.getObjectUri(),
+						element.getType(), null, element.getSpecVersion(), false, null);
+				if (mo instanceof Element) {
+					elements.add((Element)mo);
+					if (addAllToRoot) {
+						roots.add((Element)mo);
+					}
+					addExternalElements(mo, referencedExternalElementUris, alreadySearched);
+				} else {
+					logger.warn("Non element in the serialized graph - "+element.getObjectUri()+" will not be included in the SPDX document elements");
+				}
+			}
+		}
+		Collection<ExternalMap> imports = retval.getImportss();
+		for (String externalUri:referencedExternalElementUris) {
+			imports.add(retval.createExternalMap(getNextId(IdType.Anonymous))
+					.setExternalSpdxId(externalUri)
+					.build());
+		}
+		return retval;
+	}
+
+	/**
+	 * Searches for any external elements referenced in the model object and adds that to the referencedExternalElementUris
+	 * @param modelObject modelObject to search for external references
+	 * @param referencedExternalElementUris referenced external element URIs
+	 * @param alreadySearch set of URI's which have already been searched
+	 * @throws InvalidSPDXAnalysisException on error fetching property values
+	 */
+	private void addExternalElements(CoreModelObject modelObject,
+			Set<String> referencedExternalElementUris,
+			Set<String> alreadySearched) throws InvalidSPDXAnalysisException {
+		if (alreadySearched.contains(modelObject.getObjectUri())) {
+			return;
+		}
+		alreadySearched.add(modelObject.getObjectUri());
+		for (PropertyDescriptor pd:modelObject.getPropertyValueDescriptors()) {
+			Optional<Object> value = modelObject.getObjectPropertyValue(pd);
+			if (value.isPresent()) {
+				if (value.get() instanceof ExternalElement) {
+					referencedExternalElementUris.add(((ExternalElement)value.get()).getIndividualURI());
+				} else if (value.get() instanceof CoreModelObject) {
+					addExternalElements((CoreModelObject)value.get(), referencedExternalElementUris, alreadySearched);
+				}
 			}
 		}
 	}
