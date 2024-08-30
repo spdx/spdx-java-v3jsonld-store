@@ -19,19 +19,19 @@ import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_0.core.Agent;
-import org.spdx.library.model.v3_0_0.core.CreationInfo;
-import org.spdx.library.model.v3_0_0.core.Element;
-import org.spdx.library.model.v3_0_0.core.HashAlgorithm;
-import org.spdx.library.model.v3_0_0.core.ProfileIdentifierType;
-import org.spdx.library.model.v3_0_0.core.Relationship;
-import org.spdx.library.model.v3_0_0.core.RelationshipType;
-import org.spdx.library.model.v3_0_0.core.SpdxDocument;
-import org.spdx.library.model.v3_0_0.software.Sbom;
-import org.spdx.library.model.v3_0_0.software.SbomType;
-import org.spdx.library.model.v3_0_0.software.SpdxFile;
-import org.spdx.library.model.v3_0_0.software.SpdxPackage;
+import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.core.Agent;
+import org.spdx.library.model.v3_0_1.core.CreationInfo;
+import org.spdx.library.model.v3_0_1.core.Element;
+import org.spdx.library.model.v3_0_1.core.HashAlgorithm;
+import org.spdx.library.model.v3_0_1.core.ProfileIdentifierType;
+import org.spdx.library.model.v3_0_1.core.Relationship;
+import org.spdx.library.model.v3_0_1.core.RelationshipType;
+import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.software.Sbom;
+import org.spdx.library.model.v3_0_1.software.SbomType;
+import org.spdx.library.model.v3_0_1.software.SpdxFile;
+import org.spdx.library.model.v3_0_1.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -90,7 +90,7 @@ public class JsonLDStoreTest {
 			String agentUri = prefix + "AGENT";
 			String createdName = "Creator";
 			String createdDate = "2024-07-22T16:01:15Z";
-			String specVersion = "3.0.0";
+			String specVersion = "3.0.1";
 			String pkgName = "Package Name";
 			HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
 			String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
@@ -122,7 +122,8 @@ public class JsonLDStoreTest {
 			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 			JsonNode root = mapper.readTree(result);
 			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
-					String.format("spdx-context-v%s.jsonld",  specVersion));
+					String.format("spdx-context-v%s.jsonld",  specVersion),
+					String.format("spdx-model-v%s.jsonld",  specVersion));
 			assertTrue(jsonLDSchema.validate(root));
 		}
 		
@@ -136,7 +137,7 @@ public class JsonLDStoreTest {
 	@Test
 	public void testDeSerialize() throws Exception {
 		
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String created = "2024-03-06T00:00:00Z";
 		String personSpdxId = "http://spdx.example.com/Agent/JoshuaWatt";
 		String documentSpdxId = "http://spdx.example.com/Document1";

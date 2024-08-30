@@ -17,7 +17,7 @@ import java.util.Optional;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
 import org.spdx.storage.PropertyDescriptor;
 
 import net.jimblackler.jsonschemafriend.GenerationException;
@@ -51,21 +51,21 @@ public class JsonLDSchemaTest {
 	 */
 	@Test
 	public void testGetAllClasses() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Collection<Schema> result = schema.getAllClasses();
 		assertTrue(result.size() > 0);
 	}
 	
 	@Test
 	public void testHasProperty() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Schema relationshipSchema = schema.getClassSchema("Relationship").get();
 		assertTrue(schema.hasProperty("spdxId", relationshipSchema));
 	}
 	
 	@Test
 	public void testIsSubclassOf() throws GenerationException, URISyntaxException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Schema relationshipSchema = schema.getClassSchema("Relationship").get();
 		assertTrue(schema.isSubclassOf("Element", relationshipSchema));
 		assertFalse(schema.isSubclassOf("simplelicensing_AnyLicenseInfo", relationshipSchema));
@@ -73,15 +73,15 @@ public class JsonLDSchemaTest {
 
 	@Test
 	public void testGetTypeUri() throws GenerationException, URISyntaxException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Schema relationshipSchema = schema.getClassSchema("Relationship").get();
-		assertEquals(new URI("https://spdx.org/rdf/3.0.0/terms/Core/Relationship"),
+		assertEquals(new URI("https://spdx.org/rdf/3.0.1/terms/Core/Relationship"),
 				schema.getTypeUri(relationshipSchema).get());
 	}
 	
 	@Test
 	public void testGetType() throws GenerationException, URISyntaxException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Schema relationshipSchema = schema.getClassSchema("Relationship").get();
 		assertEquals("Relationship", schema.getType(relationshipSchema).get());
 	}
@@ -89,13 +89,13 @@ public class JsonLDSchemaTest {
 	@Test
 	public void testValidateFile() throws GenerationException, IOException {
 		File exampleFile = new File(JSON_EXAMPLE_FILE);
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		assertTrue(schema.validate(exampleFile));
 	}
 	
 	@Test
 	public void testGetAllAnyLicenseInfos() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		List<String> retval = schema.getAnyLicenseInfoTypes();
 		assertFalse(retval.isEmpty());
 		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
@@ -110,7 +110,7 @@ public class JsonLDSchemaTest {
 	 */
 	@Test
 	public void testGetAllElements() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		List<String> retval = schema.getElementTypes();
 		assertFalse(retval.isEmpty());
 		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
@@ -121,10 +121,10 @@ public class JsonLDSchemaTest {
 	
 	@Test
 	public void testGetPropertyType() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Optional<String> result = schema.getPropertyType("element");
 		assertTrue(result.isPresent());
-		assertEquals("@id", result.get());
+		assertEquals("@vocab", result.get());
 		result = schema.getPropertyType("endTime");
 		assertTrue(result.isPresent());
 		assertEquals("http://www.w3.org/2001/XMLSchema#dateTimeStamp", result.get());
@@ -132,17 +132,53 @@ public class JsonLDSchemaTest {
 	
 	@Test
 	public void testGetVocab() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Optional<String> result = schema.getVocab("annotationType");
 		assertTrue(result.isPresent());
-		assertEquals("https://spdx.org/rdf/3.0.0/terms/Core/AnnotationType/", result.get());
+		assertEquals("https://spdx.org/rdf/3.0.1/terms/Core/AnnotationType/", result.get());
 	}
 	
 	@Test
 	public void testGetPropertyDescriptor() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.0.json", "spdx-context-v3.0.0.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		Optional<PropertyDescriptor> result = schema.getPropertyDescriptor("beginIntegerRange");
 		assertTrue(result.isPresent());
 		assertEquals(SpdxConstantsV3.PROP_BEGIN_INTEGER_RANGE, result.get());
+	}
+	
+	@Test
+	public void testIsEnum()  throws GenerationException {
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
+		String enumProperty = "externalRefType";
+		String objectProperty = "element";
+		String stringProperty = "comment";
+		assertTrue(schema.isEnum(enumProperty));
+		assertFalse(schema.isEnum(objectProperty));
+		assertFalse(schema.isEnum(stringProperty));
+	}
+	
+	@Test
+	public void testIsSpdxObject()  throws GenerationException {
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
+		String enumProperty = "externalRefType";
+		String objectProperty = "element";
+		String stringProperty = "comment";
+		assertFalse(schema.isSpdxObject(enumProperty));
+		assertTrue(schema.isSpdxObject(objectProperty));
+		assertFalse(schema.isSpdxObject(stringProperty));
+	}
+	
+	@Test
+	public void testIsIndividual()  throws GenerationException {
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
+		String individualValue = "https://spdx.org/rdf/3.0.1/terms/Core/NoneElement";
+		String nonIndividualValue = "https://this.is/an/id";
+		String enumProperty = "externalRefType";
+		String objectProperty = "element";
+		String stringProperty = "comment";
+		assertFalse(schema.isIndividual(enumProperty, individualValue));
+		assertTrue(schema.isIndividual(objectProperty, individualValue));
+		assertFalse(schema.isIndividual(objectProperty, nonIndividualValue));
+		assertFalse(schema.isIndividual(stringProperty, individualValue));
 	}
 }

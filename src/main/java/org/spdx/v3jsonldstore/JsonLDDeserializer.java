@@ -27,7 +27,7 @@ import org.spdx.core.TypedValue;
 import org.spdx.library.ListedLicenses;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.PropertyDescriptor;
@@ -318,12 +318,7 @@ public class JsonLDDeserializer {
 		// A JSON string can represent an Element, another object (like CreatingInfo), an enumeration, an
 		// individual value URL, an external URI
 		JsonLDSchema schema = getOrCreateSchema(specVersion);
-		Optional<String> propertyType = schema.getPropertyType(propertyName);
-		if (!propertyType.isPresent()) {
-			logger.warn("Missing property type for value "+jsonValue+".  Defaulting to a string type");
-			return jsonValue.asText();
-		} else if ("@id".equals(propertyType.get())) {
-			// we can assume this refers to an SPDX object
+		if (schema.isSpdxObject(propertyName)) {
 			if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
 				return graphIdToTypedValue.get(jsonValue.asText());
 			} else if (jsonValue.asText().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE)) {
@@ -343,27 +338,32 @@ public class JsonLDDeserializer {
 			} else {
 				throw new InvalidSPDXAnalysisException("Can not determine property type for "+jsonValue.asText());
 			}
-		} else if ("@vocab".equals(propertyType.get())) {
-			// we can assume that all @vocab types are enums
+		} else if (schema.isEnum(propertyName)) {
+			// we can assume that the @vocab points to the prefix for the enumerations
 			Optional<String> vocab = schema.getVocab(propertyName);
 			if (!vocab.isPresent()) {
 				throw new InvalidSPDXAnalysisException("Missing vocabulary for enum property "+propertyName);
 			}
 			return new SimpleUriValue(vocab.get() + jsonValue.asText());
-		} else if (JsonLDSchema.STRING_TYPES.contains(propertyType.get())) {
-			return jsonValue.asText();
-		} else if (JsonLDSchema.DOUBLE_TYPES.contains(propertyType.get())) {
-			return Double.parseDouble(jsonValue.asText());
-		} else if (JsonLDSchema.INTEGER_TYPES.contains(propertyType.get())) {
-			return Integer.parseInt(jsonValue.asText());
-		} else if (JsonLDSchema.BOOLEAN_TYPES.contains(propertyType.get())) {
-			return Boolean.parseBoolean(jsonValue.asText());
 		} else {
-			throw new InvalidSPDXAnalysisException("Unknown type: "+propertyType.get()+" for property "+propertyName);
+			Optional<String> propertyType = schema.getPropertyType(propertyName);
+			if (!propertyType.isPresent()) {
+				logger.warn("Missing property type for value "+jsonValue+".  Defaulting to a string type");
+				return jsonValue.asText();
+			} else if (JsonLDSchema.STRING_TYPES.contains(propertyType.get())) {
+				return jsonValue.asText();
+			} else if (JsonLDSchema.DOUBLE_TYPES.contains(propertyType.get())) {
+				return Double.parseDouble(jsonValue.asText());
+			} else if (JsonLDSchema.INTEGER_TYPES.contains(propertyType.get())) {
+				return Integer.parseInt(jsonValue.asText());
+			} else if (JsonLDSchema.BOOLEAN_TYPES.contains(propertyType.get())) {
+				return Boolean.parseBoolean(jsonValue.asText());
+			} else {
+				throw new InvalidSPDXAnalysisException("Unknown type: "+propertyType.get()+" for property "+propertyName);
+			}
 		}
-		
 	}
-
+	
 	/**
 	 * @param fieldName JSON name of the field
 	 * @param specVersion version of the spec used for the JSON field name conversion
@@ -388,7 +388,8 @@ public class JsonLDDeserializer {
 		}
 		try {
 			schema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
-					String.format("spdx-context-v%s.jsonld",  specVersion));
+					String.format("spdx-context-v%s.jsonld",  specVersion),
+					String.format("spdx-model-v%s.jsonld",  specVersion));
 			versionToSchema.put(specVersion, schema);
 			return schema;
 		} catch (GenerationException e) {
@@ -401,7 +402,8 @@ public class JsonLDDeserializer {
 		}
 		try {
 			schema = new JsonLDSchema(String.format("schema-v%s.json",  latestVersion),
-					String.format("spdx-context-v%s.jsonld",  latestVersion));
+					String.format("spdx-context-v%s.jsonld",  latestVersion),
+					String.format("spdx-model-v%s.jsonld",  specVersion));
 			versionToSchema.put(latestVersion, schema);
 			return schema;
 		} catch (GenerationException e) {

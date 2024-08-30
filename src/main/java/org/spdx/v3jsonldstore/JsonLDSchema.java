@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,6 +63,8 @@ public class JsonLDSchema {
 		REVERSE_JAVA_WORDS.put("SpdxFile", "File");
 		RESERVED_JAVA_WORDS.put("file", "spdxFile");
 		REVERSE_JAVA_WORDS.put("spdxFile", "file");
+		RESERVED_JAVA_WORDS.put("import", "spdxImport");
+		REVERSE_JAVA_WORDS.put("spdxImport", "import");
 		BOOLEAN_TYPES.add("http://www.w3.org/2001/XMLSchema#boolean");
 		INTEGER_TYPES.add("http://www.w3.org/2001/XMLSchema#integer");
 		INTEGER_TYPES.add("http://www.w3.org/2001/XMLSchema#nonPositiveInteger");
@@ -85,17 +88,22 @@ public class JsonLDSchema {
 	}
 	
 	static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+	private static final String OBJECT_TYPE = "http://www.w3.org/2002/07/owl#ObjectProperty";
+	private static final String INDIVIDUAL_TYPE = "http://www.w3.org/2002/07/owl#NamedIndividual";
 	private JsonNode contexts;
 	private Schema spdxRootSchema;
+	private Map<String, JsonNode> modelStatements = new HashMap<>(); // maps the ID to the statement
 	private Validator validator = new Validator();
 	private List<String> elementTypes;
 	private List<String> anyLicenseInfoTypes;
 
 	/**
 	 * @param schemaFileName File name for the schema file in the resources directory
+	 * @param contextFileName File name for the context file in the resources directory
+	 * @param modelFileName File name for the model file in the resources directory
 	 * @throws GenerationException on schema loading error
 	 */
-	public JsonLDSchema(String schemaFileName, String contextFileName) throws GenerationException {
+	public JsonLDSchema(String schemaFileName, String contextFileName, String modelFileName) throws GenerationException {
 		SchemaStore schemaStore = new SchemaStore();
 		spdxRootSchema = schemaStore.loadSchema(JsonLDSchema.class.getResourceAsStream("/resources/"+schemaFileName));
 		try (InputStream is = JsonLDSchema.class.getResourceAsStream("/resources/"+contextFileName)) {
@@ -118,6 +126,25 @@ public class JsonLDSchema {
 			this.contexts = contexts;
 		} catch (IOException e1) {
 			throw new GenerationException("I/O Error loading JSON LD Context file", e1);
+		}
+		try (InputStream is = JsonLDSchema.class.getResourceAsStream("/resources/"+modelFileName)) {
+			if (Objects.isNull(is)) {
+				throw new RuntimeException("Unable to open JSON LD model file");
+			}
+			JsonNode root;
+			try {
+				root = JSON_MAPPER.readTree(is);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			for (Iterator<JsonNode> iter = root.elements(); iter.hasNext(); ) {
+				JsonNode modelStatement = iter.next();
+				if (modelStatement.has("@id")) {
+					modelStatements.put(modelStatement.get("@id").asText(), modelStatement);
+				}
+			}
+		} catch (IOException e1) {
+			throw new GenerationException("I/O Error loading JSON LD model file", e1);
 		}
 		elementTypes = collectElementTypes();
 		anyLicenseInfoTypes = collectAnyLicenseInfoTypes();
@@ -219,16 +246,30 @@ public class JsonLDSchema {
 	 * @return true if the schema requires a property named propertyName via properties, subSchemas, or allOf
 	 */
 	public boolean hasProperty(String propertyName, Schema schema) {
+		return hasProperty(propertyName, schema, new HashSet<>());
+	}
+	
+	/**
+	 * @param propertyName name of the property to check
+	 * @param schema schema containing property restrictions
+	 * @param checkSchemas set of schemas which has already been checked
+	 * @return true if the schema requires a property named propertyName via properties, subSchemas, or allOf
+	 */
+	private boolean hasProperty(String propertyName, Schema schema, Set<Schema> checkedSchemas) {
+		if (checkedSchemas.contains(schema)) {
+			return false;
+		}
+		checkedSchemas.add(schema);
 		if (schema.getProperties().containsKey(propertyName)) {
 			return true;
 		}
 		for (Schema subSchema:schema.getSubSchemas().values()) {
-			if (hasProperty(propertyName, subSchema)) {
+			if (hasProperty(propertyName, subSchema, checkedSchemas)) {
 				return true;
 			}
 		}
 		for (Schema allOfSchema:schema.getAllOf()) {
-			if (hasProperty(propertyName, allOfSchema)) {
+			if (hasProperty(propertyName, allOfSchema, checkedSchemas)) {
 				return true;
 			}
 		}
@@ -411,7 +452,8 @@ public class JsonLDSchema {
 	 * @return the SPDX model property descriptor for the JSON property
 	 */
 	public Optional<PropertyDescriptor> getPropertyDescriptor(String fieldName) {
-		JsonNode propertyNode = contexts.get(fieldName);
+		String propName = REVERSE_JAVA_WORDS.getOrDefault(fieldName, fieldName);
+		JsonNode propertyNode = contexts.get(propName);
 		if (Objects.isNull(propertyNode)) {
 			return Optional.empty();
 		}
@@ -423,5 +465,91 @@ public class JsonLDSchema {
 		String namespace = propertyUri.substring(0, propertyUri.lastIndexOf('/')+1);
 		String name = propertyUri.substring(propertyUri.lastIndexOf('/')+1);
 		return Optional.of(new PropertyDescriptor(name, namespace));
+	}
+	
+	/**
+	 * @param propertyName property name
+	 * @return the SHACL statement from the model if it exists
+	 */
+	private Optional<JsonNode> getPropertyShacl(String propertyName) {
+		JsonNode propertytNode = contexts.get(propertyName);
+		if (Objects.isNull(propertytNode)) {
+			return Optional.empty();
+		}
+		JsonNode idNode = propertytNode.get("@id");
+		if (Objects.isNull(idNode)) {
+			return Optional.empty();
+		}
+		return Optional.ofNullable(modelStatements.get(idNode.asText()));
+	}
+
+	/**
+	 * @param propertyName Name of the property
+	 * @return true if the value associated with the property is an ID representing an SPDX Object
+	 */
+	public boolean isSpdxObject(String propertyName) {
+		if (isEnum(propertyName)) {
+			return false;
+		}
+		Optional<JsonNode> shacl = getPropertyShacl(propertyName);
+		if (!shacl.isPresent()) {
+			return false;
+		}
+		boolean objectType = false;
+		JsonNode types = shacl.get().get("@type");
+		if (Objects.isNull(types)) {
+			return false;
+		}
+		for (Iterator<JsonNode> iter = types.iterator(); iter.hasNext();) {
+			if (OBJECT_TYPE.equals(iter.next().asText())) {
+				objectType = true;
+			}
+		}
+		return objectType;
+	}
+	
+	/**
+	 * @param propertyName Name of the property
+	 * @param propertyValue property value
+	 * @return true if the propertyValue represents an Individual from the vocabulary
+	 */
+	public boolean isIndividual(String propertyName, String propertyValue) {
+		if (!isSpdxObject(propertyName)) {
+			return false;
+		}
+		String id;
+		JsonNode context = contexts.get(propertyValue);
+		if (Objects.nonNull(context) && context.has("@id")) {
+			id = context.get("@id").asText();
+		} else {
+			id = propertyValue;
+		}
+		JsonNode shacl = modelStatements.get(id);
+		if (Objects.isNull(shacl)) {
+			return false;
+		}
+		JsonNode types = shacl.get("@type");
+		for (Iterator<JsonNode> iter = types.elements(); iter.hasNext(); ) {
+			if (INDIVIDUAL_TYPE.equals(iter.next().asText())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param propertyName Name of the property
+	 * @return true if the propertyValue represents an enumeration
+	 */
+	public boolean isEnum(String propertyName) {
+		Optional<String> type = getPropertyType(propertyName);
+		if (!type.isPresent()) {
+			return false;
+		}
+		if (!"@vocab".equals(type.get())) {
+			return false;
+		}
+		Optional<String> vocab = getVocab(propertyName);
+		return vocab.isPresent() && !vocab.get().endsWith("terms/Core/Element/");
 	}
 }

@@ -30,10 +30,10 @@ import org.spdx.core.TypedValue;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v2.license.AnyLicenseInfo;
-import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_0.core.CreationInfo;
-import org.spdx.library.model.v3_0_0.core.Element;
-import org.spdx.library.model.v3_0_0.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.core.CreationInfo;
+import org.spdx.library.model.v3_0_1.core.Element;
+import org.spdx.library.model.v3_0_1.core.SpdxDocument;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IModelStoreLock;
 import org.spdx.storage.IModelStore.IdType;
@@ -166,7 +166,8 @@ public class JsonLDSerializer {
 		this.specVersion = specVersion;
 		this.useExternalListedElements = useExternalListedElements;
 		jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
-				String.format("spdx-context-v%s.jsonld",  specVersion));
+				String.format("spdx-context-v%s.jsonld",  specVersion),
+				String.format("spdx-model-v%s.jsonld",  specVersion));
 	}
 
 	/**

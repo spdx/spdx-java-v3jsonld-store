@@ -16,16 +16,16 @@ import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_0.core.Agent;
-import org.spdx.library.model.v3_0_0.core.CreationInfo;
-import org.spdx.library.model.v3_0_0.core.ExternalElement;
-import org.spdx.library.model.v3_0_0.core.HashAlgorithm;
-import org.spdx.library.model.v3_0_0.core.Person;
-import org.spdx.library.model.v3_0_0.core.Relationship;
-import org.spdx.library.model.v3_0_0.core.RelationshipType;
-import org.spdx.library.model.v3_0_0.core.SpdxDocument;
-import org.spdx.library.model.v3_0_0.software.SpdxFile;
-import org.spdx.library.model.v3_0_0.software.SpdxPackage;
+import org.spdx.library.model.v3_0_1.core.Agent;
+import org.spdx.library.model.v3_0_1.core.CreationInfo;
+import org.spdx.library.model.v3_0_1.core.ExternalElement;
+import org.spdx.library.model.v3_0_1.core.HashAlgorithm;
+import org.spdx.library.model.v3_0_1.core.Person;
+import org.spdx.library.model.v3_0_1.core.Relationship;
+import org.spdx.library.model.v3_0_1.core.RelationshipType;
+import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.software.SpdxFile;
+import org.spdx.library.model.v3_0_1.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -325,7 +325,7 @@ public class JsonLDSerializerTest {
 				.build();
 		
 		SpdxDocument spdxDoc = pkg.createSpdxDocument(documentUri)
-				.addImports(pkg.createExternalMap(modelStore.getNextId(IdType.Anonymous))
+				.addSpdxImport(pkg.createExternalMap(modelStore.getNextId(IdType.Anonymous))
 						.setExternalSpdxId(externalElementUri)
 						.setLocationHint(externalLocationHint)
 						.build())

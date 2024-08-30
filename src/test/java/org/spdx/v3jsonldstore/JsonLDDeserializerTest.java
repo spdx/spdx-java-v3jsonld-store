@@ -17,19 +17,19 @@ import org.spdx.core.CoreModelObject;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.TypedValue;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_0.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_0.core.Agent;
-import org.spdx.library.model.v3_0_0.core.CreationInfo;
-import org.spdx.library.model.v3_0_0.core.Element;
-import org.spdx.library.model.v3_0_0.core.Person;
-import org.spdx.library.model.v3_0_0.core.ProfileIdentifierType;
-import org.spdx.library.model.v3_0_0.core.Relationship;
-import org.spdx.library.model.v3_0_0.core.RelationshipType;
-import org.spdx.library.model.v3_0_0.core.SpdxDocument;
-import org.spdx.library.model.v3_0_0.software.Sbom;
-import org.spdx.library.model.v3_0_0.software.SbomType;
-import org.spdx.library.model.v3_0_0.software.SpdxFile;
-import org.spdx.library.model.v3_0_0.software.SpdxPackage;
+import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.core.Agent;
+import org.spdx.library.model.v3_0_1.core.CreationInfo;
+import org.spdx.library.model.v3_0_1.core.Element;
+import org.spdx.library.model.v3_0_1.core.Person;
+import org.spdx.library.model.v3_0_1.core.ProfileIdentifierType;
+import org.spdx.library.model.v3_0_1.core.Relationship;
+import org.spdx.library.model.v3_0_1.core.RelationshipType;
+import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.software.Sbom;
+import org.spdx.library.model.v3_0_1.software.SbomType;
+import org.spdx.library.model.v3_0_1.software.SpdxFile;
+import org.spdx.library.model.v3_0_1.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.simple.InMemSpdxStore;
 
@@ -74,7 +74,7 @@ public class JsonLDDeserializerTest {
 	public void testDeserializeGraph() throws InvalidSPDXAnalysisException {
 JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 		
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String created = "2024-07-18T12:00:00Z";
 		String personSpdxId = "https://this/is/a/person";
 		String creationInfoId = "_:creationInfo1";
@@ -240,7 +240,7 @@ JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 	@Test
 	public void testDeserializeMultipleCreationInfos() throws GenerationException, InvalidSPDXAnalysisException {
 		JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String created = "2024-07-18T12:00:00Z";
 		String created2 = "2023-05-18T12:00:00Z";
 		String personSpdxId = "https://this/is/a/person";
@@ -408,7 +408,7 @@ JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 	public void testDeserializeElement() throws GenerationException, InvalidSPDXAnalysisException {
 		JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 		
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String created = "2024-07-18T12:00:00Z";
 		String personSpdxId = "https://this/is/a/person";
 		String personName = "My Name Is Gary";
@@ -452,7 +452,7 @@ JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 	public void testDeserializeWithExternalElement() throws GenerationException, InvalidSPDXAnalysisException {
 		JsonLDDeserializer deserializer = new JsonLDDeserializer(modelStore);
 		
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String created = "2024-07-18T12:00:00Z";
 		String personSpdxId = "https://this/is/a/person";
 		String packageSpdxId = "https://this/is/a/package";
