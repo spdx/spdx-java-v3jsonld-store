@@ -98,7 +98,7 @@ public class JsonLDSchemaTest {
 		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		List<String> retval = schema.getAnyLicenseInfoTypes();
 		assertFalse(retval.isEmpty());
-		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
+		assertTrue(retval.contains("SimpleLicensing.LicenseExpression"));
 		assertTrue(retval.contains("ExpandedLicensing.ConjunctiveLicenseSet"));
 		assertTrue(retval.contains("SimpleLicensing.LicenseExpression"));
 		assertFalse(retval.contains("Core.Relationship"));
@@ -113,8 +113,8 @@ public class JsonLDSchemaTest {
 		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
 		List<String> retval = schema.getElementTypes();
 		assertFalse(retval.isEmpty());
-		assertTrue(retval.contains("SimpleLicensing.AnyLicenseInfo"));
-		assertTrue(retval.contains("Core.Element"));
+		assertTrue(retval.contains("SimpleLicensing.LicenseExpression"));
+		assertTrue(retval.contains("Software.SpdxPackage"));
 		assertTrue(retval.contains("Core.Relationship"));
 		assertFalse(retval.contains("Core.CreationInfo"));
 	}

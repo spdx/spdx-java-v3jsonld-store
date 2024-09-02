@@ -97,11 +97,11 @@ public class JsonLDStoreTest {
 			
 			ModelCopyManager copyManager = new ModelCopyManager();
 			SpdxPackage pkg = new SpdxPackage(ldStore, pkgUri, copyManager, true, prefix);
-			CreationInfo creationInfo = pkg.createCreationInfo(ldStore.getNextId(IdType.Anonymous))
-					.setCreated(createdDate)
-					.setSpecVersion(specVersion)
-					.build();
-			Agent createdBy = pkg.createPerson(agentUri)
+			CreationInfo creationInfo = new CreationInfo(ldStore, ldStore.getNextId(IdType.Anonymous),
+					copyManager, true, prefix);
+			creationInfo.setCreated(createdDate)
+					.setSpecVersion(specVersion);
+			Agent createdBy = creationInfo.createPerson(agentUri)
 					.setCreationInfo(creationInfo)
 					.setName(createdName)
 					.build();
@@ -126,7 +126,19 @@ public class JsonLDStoreTest {
 					String.format("spdx-model-v%s.jsonld",  specVersion));
 			assertTrue(jsonLDSchema.validate(root));
 		}
-		
+	}
+	
+	@Test
+	public void testValidateTestFile() throws Exception {
+		String specVersion = "3.0.1";
+		try (FileInputStream fis = new FileInputStream(new File(PACKAGE_SBOM_FILE))) {
+			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+			JsonNode root = mapper.readTree(fis);
+			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
+					String.format("spdx-context-v%s.jsonld",  specVersion),
+					String.format("spdx-model-v%s.jsonld",  specVersion));
+			assertTrue(jsonLDSchema.validate(root));
+		}
 		
 	}
 
