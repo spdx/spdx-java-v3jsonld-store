@@ -88,10 +88,10 @@ public class JsonLDSerializer {
 					return -1;
 				} else {
 					List<JsonNode> list0 = new ArrayList<>();
-					arg0.spliterator().forEachRemaining((node) -> list0.add(node));
+					arg0.spliterator().forEachRemaining(list0::add);
 					list0.sort(NODE_COMPARATOR);
 					List<JsonNode> list1 = new ArrayList<>();
-					arg1.spliterator().forEachRemaining((node) -> list1.add(node));
+					arg1.spliterator().forEachRemaining(list1::add);
 					list1.sort(NODE_COMPARATOR);
 					for (int i = 0; i < list0.size(); i++) {
 						int retval = compare(list0.get(i), list1.get(i));
@@ -110,9 +110,9 @@ public class JsonLDSerializer {
 			if (!arg1.isObject()) {
 				return 1;
 			}
-			JsonNode spdxId0 = arg0.get("spdxId");
+			JsonNode spdxId0 = arg0.get(JsonLDDeserializer.SPDX_ID_PROP);
 			if (Objects.nonNull(spdxId0)) {
-				JsonNode spdxId1 = arg1.get("spdxId");
+				JsonNode spdxId1 = arg1.get(JsonLDDeserializer.SPDX_ID_PROP);
 				if (Objects.isNull(spdxId1)) {
 					return 1;
 				}
@@ -122,7 +122,7 @@ public class JsonLDSerializer {
 			//TODO: Add any special classes for sorting other than by fields
 			// If no SPDX ID, sort by properties
 			List<String> fieldNames = new ArrayList<>();
-			arg0.fieldNames().forEachRemaining((String field) -> fieldNames.add(field));
+			arg0.fieldNames().forEachRemaining(fieldNames::add);
 			Collections.sort(fieldNames);
 			int retval = 0;
 			for (String fieldName:fieldNames) {
@@ -139,6 +139,12 @@ public class JsonLDSerializer {
 	};
 
 	private static final String GENERATED_SERIALIZED_ID_PREFIX = "https://generated-prefix/";
+
+	private static final String CONTEXT_URI = "https://spdx.org/rdf/%s/spdx-context.jsonld";
+
+	private static final String NON_URI_WARNING = "SPDX element has a non-URI ID: {}.  Converting to URI {}.";
+
+	private static final String CONTEXT_PROP = "@context";
 	
 	private IModelStore modelStore;
 	private ObjectMapper jsonMapper;
@@ -183,8 +189,8 @@ public class JsonLDSerializer {
 		} else if (objectToSerialize instanceof Element) {
 			return serializeElement((Element)objectToSerialize);
 		} else {
-			logger.error("Unsupported type to serialize: "+objectToSerialize.getClass().toString());
-			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass().toString());
+			logger.error("Unsupported type to serialize: {}", objectToSerialize.getClass());
+			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass());
 		}
 		
 	}
@@ -198,7 +204,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeSpdxDocument(SpdxDocument spdxDocument) throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
 		List<JsonNode> graph = new ArrayList<>();
@@ -206,8 +212,8 @@ public class JsonLDSerializer {
 		IModelStoreLock lock = modelStore.enterCriticalSection(false);
 		try {
 			// Collect all the elements we want to copy
-			spdxDocument.getRootElements().forEach(element -> elementsToCopy.add(element));
-			spdxDocument.getElements().forEach(element -> elementsToCopy.add(element));
+			spdxDocument.getRootElements().forEach(elementsToCopy::add);
+			spdxDocument.getElements().forEach(elementsToCopy::add);
 			// collect all the creation infos
 			Set<CreationInfo> creationInfos = new HashSet<>();
 			for (Element element:elementsToCopy) {
@@ -225,8 +231,7 @@ public class JsonLDSerializer {
 				String anonId = documentSpdxId;
 				documentSpdxId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
 				idToSerializedId.put(anonId, documentSpdxId);
-				logger.warn("SPDX element has a non-URI ID: "+spdxDocument.getObjectUri() +
-						".  Converting to URI " + documentSpdxId + ".");
+				logger.warn(NON_URI_WARNING, spdxDocument.getObjectUri(), documentSpdxId);
 			}
 			graph.add(spdxDocumentToJsonNode(spdxDocument, documentSpdxId, idToSerializedId));
 			for (String type:jsonLDSchema.getElementTypes()) {
@@ -237,8 +242,7 @@ public class JsonLDSerializer {
 							String anonId = serializedId;
 							serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
 							idToSerializedId.put(anonId, serializedId);
-							logger.warn("SPDX element has a non-URI ID: "+element.getObjectUri() +
-									".  Converting to URI " + serializedId + ".");
+							logger.warn(NON_URI_WARNING, element.getObjectUri(), serializedId);
 						}
 						if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
 							graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
@@ -267,7 +271,7 @@ public class JsonLDSerializer {
 	private JsonNode spdxDocumentToJsonNode(SpdxDocument spdxDocument,
 			String serializedId, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		ObjectNode retval = jsonMapper.createObjectNode();
-		retval.set("spdxId", new TextNode(serializedId));
+		retval.set(JsonLDDeserializer.SPDX_ID_PROP, new TextNode(serializedId));
 		retval.set("type", new TextNode(typeToJsonType(SpdxConstantsV3.CORE_SPDX_DOCUMENT)));
 		for (PropertyDescriptor prop:spdxDocument.getPropertyValueDescriptors()) {
 			if (SpdxConstantsV3.PROP_ELEMENT.equals(prop)) {
@@ -301,7 +305,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeElement(Element objectToSerialize) throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		Map<String, String> idToSerializedId = new HashMap<>();
 		// collect all the creation infos
 		List<JsonNode> graph = new ArrayList<>();
@@ -312,8 +316,7 @@ public class JsonLDSerializer {
 				String anonId = serializedId;
 				serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
 				idToSerializedId.put(anonId, serializedId);
-				logger.warn("SPDX element has a non-URI ID: "+objectToSerialize.getObjectUri() +
-						".  Converting to URI " + serializedId + ".");
+				logger.warn(NON_URI_WARNING, objectToSerialize.getObjectUri(), serializedId);
 			}
 			if (!(useExternalListedElements && objectToSerialize.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
 				graph.add(modelObjectToJsonNode(objectToSerialize, serializedId, idToSerializedId));
@@ -335,7 +338,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeAllObjects() throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format("https://spdx.org/rdf/%s/spdx-context.jsonld", specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
 		ModelCopyManager copyManager = new ModelCopyManager();
@@ -363,8 +366,7 @@ public class JsonLDSerializer {
 						String anonId = serializedId;
 						serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
 						idToSerializedId.put(anonId, serializedId);
-						logger.warn("SPDX element has a non-URI ID: "+element.getObjectUri() +
-								".  Converting to URI " + serializedId + ".");
+						logger.warn(NON_URI_WARNING, element.getObjectUri(), serializedId);
 					}
 					if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
 						graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
@@ -392,7 +394,7 @@ public class JsonLDSerializer {
 			String serializedId,
 			Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		ObjectNode retval = jsonMapper.createObjectNode();
-		retval.set(modelObject instanceof Element ? "spdxId" : "@id", new TextNode(serializedId));
+		retval.set(modelObject instanceof Element ? JsonLDDeserializer.SPDX_ID_PROP : "@id", new TextNode(serializedId));
 		retval.set("type", new TextNode(typeToJsonType(modelObject.getType())));
 		for (PropertyDescriptor prop:modelObject.getPropertyValueDescriptors()) {
 			if (modelObject.getModelStore().isCollectionProperty(modelObject.getObjectUri(), prop)) {
@@ -428,14 +430,14 @@ public class JsonLDSerializer {
 
 	/**
 	 * @param object object to translate to a JSON node
-	 * @param modelStore modelStore to retrieve the property information from
+	 * @param fromModelStore modelStore to retrieve the property information from
 	 * @param idToSerializedId partial Map of IDs in the modelStore to the IDs used in the serialization
 	 * @return object converted to a JSON node based on the SPDX 3.X schema
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private JsonNode objectToJsonNode(Object object, IModelStore modelStore, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
+	private JsonNode objectToJsonNode(Object object, IModelStore fromModelStore, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		if (object instanceof TypedValue) {
-			return typedValueToJsonNode((TypedValue)object, modelStore, idToSerializedId);
+			return typedValueToJsonNode((TypedValue)object, fromModelStore, idToSerializedId);
 		} else if (object instanceof String) {
 			return new TextNode((String)object);
 		} else if (object instanceof Boolean) {
@@ -459,43 +461,55 @@ public class JsonLDSerializer {
 
 	/**
 	 * @param tv typed value to translate to a JSON node
-	 * @param modelStore modelStore to retrieve the property information from
+	 * @param fromModelStore modelStore to retrieve the property information from
 	 * @param idToSerializedId partial Map of IDs in the modelStore to the IDs used in the serialization
 	 * @return a JSON node representation of a typed value based on the object type and SPDX 3.X serialization spec
 	 * @throws InvalidSPDXAnalysisException on errors retrieving model store information
 	 */
-	private JsonNode typedValueToJsonNode(TypedValue tv, IModelStore modelStore, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
+	private JsonNode typedValueToJsonNode(TypedValue tv, IModelStore fromModelStore, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		if (jsonLDSchema.getElementTypes().contains(tv.getType())) {
 			// Just return the object URI since the element will be in the @graph
 			return new TextNode(idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
 		} else if (SpdxConstantsV3.CORE_CREATION_INFO.equals(tv.getType()) && idToSerializedId.containsKey(tv.getObjectUri()))  {
 			return new TextNode (idToSerializedId.getOrDefault(tv.getObjectUri(), tv.getObjectUri()));
 		} else if (pretty && jsonLDSchema.getAnyLicenseInfoTypes().contains(tv.getType())) {
-			AnyLicenseInfo licenseInfo = (AnyLicenseInfo)ModelRegistry.getModelRegistry().inflateModelObject(modelStore, tv.getObjectUri(), tv.getType(), new ModelCopyManager(), tv.getSpecVersion(), false, "");
+			AnyLicenseInfo licenseInfo = (AnyLicenseInfo)ModelRegistry.getModelRegistry().inflateModelObject(fromModelStore, tv.getObjectUri(), tv.getType(), new ModelCopyManager(), tv.getSpecVersion(), false, "");
 			return new TextNode(licenseInfo.toString());
 		} else {
 			// we should inline to the object
-			ObjectNode retval = jsonMapper.createObjectNode();
-			retval.set("type", new TextNode(typeToJsonType(tv.getType())));
-			for (PropertyDescriptor prop:modelStore.getPropertyValueDescriptors(tv.getObjectUri())) {
-				if (modelStore.isCollectionProperty(tv.getObjectUri(), prop)) {
-					ArrayNode an = jsonMapper.createArrayNode();
-					Iterator<Object> iter = modelStore.listValues(tv.getObjectUri(), prop);
-					while (iter.hasNext()) {
-						an.add(objectToJsonNode(iter.next(), modelStore, idToSerializedId));
-					}
-					retval.set(propertyToJsonLdPropName(prop), an);
-				} else {
-					Optional<Object> val = modelStore.getValue(tv.getObjectUri(), prop);
-					if (val.isPresent()) {
-						retval.set(propertyToJsonLdPropName(prop), objectToJsonNode(val.get(), modelStore, idToSerializedId));
-					}
-				}
-			}
-			return retval;
+			return inlinedJsonNode(tv, fromModelStore, idToSerializedId);
 		}
 	}
 	
+	/**
+	 * @param tv typed value to translate to a JSON node
+	 * @param fromModelStore modelStore to retrieve the property information from
+	 * @param idToSerializedId partial Map of IDs in the modelStore to the IDs used in the serialization
+	 * @return a JSON node representation of a typed value object with inlined property values
+	 * @throws InvalidSPDXAnalysisException on errors retrieving model store information
+	 */
+	private JsonNode inlinedJsonNode(TypedValue tv, IModelStore fromModelStore,
+			Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
+		ObjectNode retval = jsonMapper.createObjectNode();
+		retval.set("type", new TextNode(typeToJsonType(tv.getType())));
+		for (PropertyDescriptor prop:fromModelStore.getPropertyValueDescriptors(tv.getObjectUri())) {
+			if (fromModelStore.isCollectionProperty(tv.getObjectUri(), prop)) {
+				ArrayNode an = jsonMapper.createArrayNode();
+				Iterator<Object> iter = fromModelStore.listValues(tv.getObjectUri(), prop);
+				while (iter.hasNext()) {
+					an.add(objectToJsonNode(iter.next(), fromModelStore, idToSerializedId));
+				}
+				retval.set(propertyToJsonLdPropName(prop), an);
+			} else {
+				Optional<Object> val = fromModelStore.getValue(tv.getObjectUri(), prop);
+				if (val.isPresent()) {
+					retval.set(propertyToJsonLdPropName(prop), objectToJsonNode(val.get(), fromModelStore, idToSerializedId));
+				}
+			}
+		}
+		return retval;
+	}
+
 	/**
 	 * @param type model type
 	 * @return the JSON representation of the type
