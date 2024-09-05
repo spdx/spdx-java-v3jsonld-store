@@ -143,6 +143,8 @@ public class JsonLDSerializer {
 	private static final String CONTEXT_URI = "https://spdx.org/rdf/%s/spdx-context.jsonld";
 
 	private static final String NON_URI_WARNING = "SPDX element has a non-URI ID: {}.  Converting to URI {}.";
+
+	private static final String CONTEXT_PROP = "@context";
 	
 	private IModelStore modelStore;
 	private ObjectMapper jsonMapper;
@@ -187,8 +189,8 @@ public class JsonLDSerializer {
 		} else if (objectToSerialize instanceof Element) {
 			return serializeElement((Element)objectToSerialize);
 		} else {
-			logger.error("Unsupported type to serialize: {}", objectToSerialize.getClass().toString());
-			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass().toString());
+			logger.error("Unsupported type to serialize: {}", objectToSerialize.getClass());
+			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass());
 		}
 		
 	}
@@ -202,7 +204,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeSpdxDocument(SpdxDocument spdxDocument) throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format(CONTEXT_URI, specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
 		List<JsonNode> graph = new ArrayList<>();
@@ -303,7 +305,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeElement(Element objectToSerialize) throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format(CONTEXT_URI, specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		Map<String, String> idToSerializedId = new HashMap<>();
 		// collect all the creation infos
 		List<JsonNode> graph = new ArrayList<>();
@@ -336,7 +338,7 @@ public class JsonLDSerializer {
 	 */
 	private JsonNode serializeAllObjects() throws InvalidSPDXAnalysisException {
 		ObjectNode root = jsonMapper.createObjectNode();
-		root.put("@context", String.format(CONTEXT_URI, specVersion));
+		root.put(CONTEXT_PROP, String.format(CONTEXT_URI, specVersion));
 		
 		Map<String, String> idToSerializedId = new HashMap<>();
 		ModelCopyManager copyManager = new ModelCopyManager();
@@ -485,24 +487,23 @@ public class JsonLDSerializer {
 	 * @param idToSerializedId partial Map of IDs in the modelStore to the IDs used in the serialization
 	 * @return a JSON node representation of a typed value object with inlined property values
 	 * @throws InvalidSPDXAnalysisException on errors retrieving model store information
-
 	 */
 	private JsonNode inlinedJsonNode(TypedValue tv, IModelStore fromModelStore,
 			Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		ObjectNode retval = jsonMapper.createObjectNode();
 		retval.set("type", new TextNode(typeToJsonType(tv.getType())));
-		for (PropertyDescriptor prop:modelStore.getPropertyValueDescriptors(tv.getObjectUri())) {
-			if (modelStore.isCollectionProperty(tv.getObjectUri(), prop)) {
+		for (PropertyDescriptor prop:fromModelStore.getPropertyValueDescriptors(tv.getObjectUri())) {
+			if (fromModelStore.isCollectionProperty(tv.getObjectUri(), prop)) {
 				ArrayNode an = jsonMapper.createArrayNode();
-				Iterator<Object> iter = modelStore.listValues(tv.getObjectUri(), prop);
+				Iterator<Object> iter = fromModelStore.listValues(tv.getObjectUri(), prop);
 				while (iter.hasNext()) {
-					an.add(objectToJsonNode(iter.next(), modelStore, idToSerializedId));
+					an.add(objectToJsonNode(iter.next(), fromModelStore, idToSerializedId));
 				}
 				retval.set(propertyToJsonLdPropName(prop), an);
 			} else {
-				Optional<Object> val = modelStore.getValue(tv.getObjectUri(), prop);
+				Optional<Object> val = fromModelStore.getValue(tv.getObjectUri(), prop);
 				if (val.isPresent()) {
-					retval.set(propertyToJsonLdPropName(prop), objectToJsonNode(val.get(), modelStore, idToSerializedId));
+					retval.set(propertyToJsonLdPropName(prop), objectToJsonNode(val.get(), fromModelStore, idToSerializedId));
 				}
 			}
 		}

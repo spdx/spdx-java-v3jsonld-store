@@ -135,40 +135,18 @@ public class JsonLDSchema {
 		} catch (IOException e1) {
 			throw new GenerationException("I/O Error loading JSON LD model file", e1);
 		}
-		elementTypes = collectElementTypes();
-		anyLicenseInfoTypes = collectAnyLicenseInfoTypes();
+		elementTypes = collectTypes("Element");
+		anyLicenseInfoTypes = collectTypes("simplelicensing_AnyLicenseInfo");
 	}
 	
 	/**
-	 * @return a list of all element types that are subclasses of AnyLicenseInfo
+	 * @return a list of all element types that are subclasses of superClass
 	 */
-	private List<String> collectAnyLicenseInfoTypes() {
+	private List<String> collectTypes(String superClass) {
 		List<String> retval = new ArrayList<>();
 		for (Schema classSchema:getAllClasses()) {
 			try {
-				if (isSubclassOf("simplelicensing_AnyLicenseInfo", classSchema)) {
-					Optional<URI> typeUri = getTypeUri(classSchema);
-					if (typeUri.isPresent()) {
-						retval.add(classUriToType(typeUri.get()));
-					} else {
-						logger.warn("No class type found for {}", classSchema.getUri());
-					}
-				}
-			} catch (URISyntaxException e) {
-				throw new RuntimeException("Unexpected URI syntax error", e);
-			}
-		}
-		return retval;
-	}
-
-	/**
-	 * @return a list of all element types that are subclasses of Element
-	 */
-	private List<String> collectElementTypes() {
-		List<String> retval = new ArrayList<>();
-		for (Schema classSchema:getAllClasses()) {
-			try {
-				if (isSubclassOf("Element", classSchema)) {
+				if (isSubclassOf(superClass, classSchema)) {
 					Optional<URI> typeUri = getTypeUri(classSchema);
 					if (typeUri.isPresent()) {
 						retval.add(classUriToType(typeUri.get()));
