@@ -88,10 +88,10 @@ public class JsonLDSerializer {
 					return -1;
 				} else {
 					List<JsonNode> list0 = new ArrayList<>();
-					arg0.spliterator().forEachRemaining((node) -> list0.add(node));
+					arg0.spliterator().forEachRemaining(list0::add);
 					list0.sort(NODE_COMPARATOR);
 					List<JsonNode> list1 = new ArrayList<>();
-					arg1.spliterator().forEachRemaining((node) -> list1.add(node));
+					arg1.spliterator().forEachRemaining(list1::add);
 					list1.sort(NODE_COMPARATOR);
 					for (int i = 0; i < list0.size(); i++) {
 						int retval = compare(list0.get(i), list1.get(i));
@@ -122,7 +122,7 @@ public class JsonLDSerializer {
 			//TODO: Add any special classes for sorting other than by fields
 			// If no SPDX ID, sort by properties
 			List<String> fieldNames = new ArrayList<>();
-			arg0.fieldNames().forEachRemaining((String field) -> fieldNames.add(field));
+			arg0.fieldNames().forEachRemaining(fieldNames::add);
 			Collections.sort(fieldNames);
 			int retval = 0;
 			for (String fieldName:fieldNames) {
@@ -212,8 +212,8 @@ public class JsonLDSerializer {
 		IModelStoreLock lock = modelStore.enterCriticalSection(false);
 		try {
 			// Collect all the elements we want to copy
-			spdxDocument.getRootElements().forEach(element -> elementsToCopy.add(element));
-			spdxDocument.getElements().forEach(element -> elementsToCopy.add(element));
+			spdxDocument.getRootElements().forEach(elementsToCopy::add);
+			spdxDocument.getElements().forEach(elementsToCopy::add);
 			// collect all the creation infos
 			Set<CreationInfo> creationInfos = new HashSet<>();
 			for (Element element:elementsToCopy) {
