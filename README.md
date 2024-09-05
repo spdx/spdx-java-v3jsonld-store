@@ -1,7 +1,12 @@
 # spdx-java-v3jsonld-store
+
 Stores SPDX documents in SPDX version 3 compatible JSON-LD format.
 
 This library utilizes the [SPDX Java Library Storage Interface](https://github.com/spdx/Spdx-Java-Library#storage-interface) extending the `ExtendedSpdxStore` which allows for utilizing any underlying store which implements the [SPDX Java Library Storage Interface](https://github.com/spdx/Spdx-Java-Library#storage-interface).
+
+# Code quality badges
+
+|   [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=spdx-v3jsonld-store&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=spdx-v3jsonld-store) | [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=spdx-v3jsonld-store&metric=bugs)](https://sonarcloud.io/summary/new_code?id=spdx-v3jsonld-store)   | [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=spdx-v3jsonld-store&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=spdx-v3jsonld-store) | [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=spdx-v3jsonld-store&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=spdx-v3jsonld-store) | [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=spdx-v3jsonld-store&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=spdx-v3jsonld-store) |
 
 # Using the Library
 
