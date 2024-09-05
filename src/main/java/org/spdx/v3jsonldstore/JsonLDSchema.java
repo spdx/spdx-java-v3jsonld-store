@@ -48,12 +48,12 @@ public class JsonLDSchema {
 	static final Logger logger = LoggerFactory.getLogger(JsonLDSchema.class);
 	private static final String ANY_CLASS_URI_SUFFIX = "/$defs/AnyClass";
 	
-	public static Map<String, String> RESERVED_JAVA_WORDS = new HashMap<>();
-	public static Map<String, String> REVERSE_JAVA_WORDS = new HashMap<>();
-	public static Set<String> BOOLEAN_TYPES = new HashSet<>();
-	public static Set<String> INTEGER_TYPES = new HashSet<>();
-	public static Set<String> DOUBLE_TYPES = new HashSet<>();
-	public static Set<String> STRING_TYPES = new HashSet<>();
+	public static final Map<String, String> RESERVED_JAVA_WORDS = new HashMap<>();
+	public static final Map<String, String> REVERSE_JAVA_WORDS = new HashMap<>();
+	public static final Set<String> BOOLEAN_TYPES = new HashSet<>();
+	public static final Set<String> INTEGER_TYPES = new HashSet<>();
+	public static final Set<String> DOUBLE_TYPES = new HashSet<>();
+	public static final Set<String> STRING_TYPES = new HashSet<>();
 	static {
 		RESERVED_JAVA_WORDS.put("Package", "SpdxPackage");
 		REVERSE_JAVA_WORDS.put("SpdxPackage", "Package");
@@ -108,35 +108,24 @@ public class JsonLDSchema {
 		spdxRootSchema = schemaStore.loadSchema(JsonLDSchema.class.getResourceAsStream("/resources/"+schemaFileName));
 		try (InputStream is = JsonLDSchema.class.getResourceAsStream("/resources/"+contextFileName)) {
 			if (Objects.isNull(is)) {
-				throw new RuntimeException("Unable to open JSON LD context file");
+				throw new GenerationException("Unable to open JSON LD context file");
 			}
-			JsonNode root;
-			try {
-				root = JSON_MAPPER.readTree(is);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-			JsonNode contexts = root.get("@context");
+			JsonNode root = JSON_MAPPER.readTree(is);
+			this.contexts = root.get("@context");
 			if (Objects.isNull(contexts)) {
 				throw new GenerationException("Missing contexts");
 			}
 			if (!contexts.isObject()) {
 				throw new GenerationException("Contexts is not an object");
 			}
-			this.contexts = contexts;
 		} catch (IOException e1) {
 			throw new GenerationException("I/O Error loading JSON LD Context file", e1);
 		}
 		try (InputStream is = JsonLDSchema.class.getResourceAsStream("/resources/"+modelFileName)) {
 			if (Objects.isNull(is)) {
-				throw new RuntimeException("Unable to open JSON LD model file");
+				throw new GenerationException("Unable to open JSON LD model file");
 			}
-			JsonNode root;
-			try {
-				root = JSON_MAPPER.readTree(is);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
+			JsonNode root = JSON_MAPPER.readTree(is);
 			for (Iterator<JsonNode> iter = root.elements(); iter.hasNext(); ) {
 				JsonNode modelStatement = iter.next();
 				if (modelStatement.has("@id")) {
@@ -162,7 +151,7 @@ public class JsonLDSchema {
 					if (typeUri.isPresent()) {
 						retval.add(classUriToType(typeUri.get()));
 					} else {
-						logger.warn("No class type found for " + classSchema.getUri());
+						logger.warn("No class type found for {}", classSchema.getUri());
 					}
 				}
 			} catch (URISyntaxException e) {
@@ -184,7 +173,7 @@ public class JsonLDSchema {
 					if (typeUri.isPresent()) {
 						retval.add(classUriToType(typeUri.get()));
 					} else {
-						logger.warn("No class type found for " + classSchema.getUri());
+						logger.warn("No class type found for {}", classSchema.getUri());
 					}
 				}
 			} catch (URISyntaxException e) {
@@ -298,18 +287,18 @@ public class JsonLDSchema {
 		if (type.isPresent()) {
 			JsonNode typeUriNode = contexts.get(type.get());
 			if (Objects.isNull(typeUriNode)) {
-				logger.warn("No context entry for "+type.get());
+				logger.warn("No context entry for {}", type.get());
 				return Optional.empty();
 			}
 			if (!typeUriNode.isTextual()) {
-				logger.warn("Wrong context type for "+type.get());
+				logger.warn("Wrong context type for {}", type.get());
 				return Optional.empty();
 			}
 			try {
 				URI retval = new URI(typeUriNode.asText());
 				return Optional.of(retval);
 			} catch (URISyntaxException e) {
-				logger.warn("Invalid URI string in context file for "+type.get());
+				logger.warn("Invalid URI string in context file for {}", type.get());
 				return Optional.empty();
 			}
 		} else {
@@ -324,7 +313,7 @@ public class JsonLDSchema {
 	public Optional<String> getType(Schema classSchema) {
 		Collection<Schema> allOfs = classSchema.getAllOf();
 		if (Objects.isNull(allOfs)) {
-			logger.warn("No allOfs for " + classSchema.getUri());
+			logger.warn("No allOfs for {}", classSchema.getUri());
 			return Optional.empty();
 		}
 		Schema typeProperty = null;
@@ -340,24 +329,25 @@ public class JsonLDSchema {
 		}
 		Collection<Schema> oneOf = typeProperty.getOneOf();
 		if (Objects.isNull(oneOf) || oneOf.isEmpty()) {
-			logger.warn("No OneOf for class schema type property " + classSchema.getUri());
+			logger.warn("No OneOf for class schema type property {}", classSchema.getUri());
 			return Optional.empty();
 		}
 		if (oneOf.size() > 1) {
-			logger.warn("Too many OneOfs for class schema type property" + classSchema.getUri());
+			logger.warn("Too many OneOfs for class schema type property {}", classSchema.getUri());
 			return Optional.empty();
 		}
 		for (Schema oneOfSchema:oneOf) {
 			Object typeString = oneOfSchema.getConst();
 			if (Objects.isNull(typeString)) {
-				logger.warn("Type string is null "+classSchema.getUri());
+				logger.warn("Type string is null {}", classSchema.getUri());
 				return Optional.empty();
 			}
-			if (!(typeString instanceof String)) {
-				logger.warn("Type string is not of type string " + classSchema.getUri());
+			if (typeString instanceof String) {
+				return Optional.of((String)typeString);
+			} else {
+				logger.warn("Type string is not of type string {}", classSchema.getUri());
 				return Optional.empty();
 			}
-			return Optional.of((String)typeString);
 		}
 		return Optional.empty();
 	}
@@ -371,10 +361,10 @@ public class JsonLDSchema {
 			validator.validate(spdxRootSchema, JSON_MAPPER.treeToValue(root, Map.class));
 			return true;
 		} catch (SchemaException e) {
-		      logger.error("JSON object does not match schema: " + e.getMessage());
+		      logger.error("JSON object does not match schema: {}", e.getMessage());
 		      return false;
 	    } catch (JsonProcessingException e) {
-	    	logger.error("Unable to parse JSON object: " + e.getMessage());
+	    	logger.error("Unable to parse JSON object: {}", e.getMessage());
 		      return false;
 		} catch (IllegalArgumentException e) {
 			logger.error(e.getMessage());
@@ -392,10 +382,10 @@ public class JsonLDSchema {
 			validator.validate(spdxRootSchema, spdxJsonFile);
 			return true;
 		} catch (SchemaException e) {
-		      logger.error("JSON object does not match schema: " + e.getMessage());
+		      logger.error("JSON object does not match schema: {}", e.getMessage());
 		      return false;
 	    } catch (JsonProcessingException e) {
-	    	logger.error("Unable to parse JSON object: " + e.getMessage());
+	    	logger.error("Unable to parse JSON object: {}", e.getMessage());
 		      return false;
 		} catch (IllegalArgumentException e) {
 			logger.error(e.getMessage());

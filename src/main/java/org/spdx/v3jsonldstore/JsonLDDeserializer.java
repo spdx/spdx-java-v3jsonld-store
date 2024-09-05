@@ -50,6 +50,10 @@ public class JsonLDDeserializer {
 	static final Set<String> ALL_SPDX_TYPES;
 	static final Set<String> NON_PROPERTY_FIELD_NAMES;
 	static final Map<String, String> JSON_PREFIX_TO_MODEL_PREFIX;
+
+	static final String SPDX_ID_PROP = "spdxId";
+
+	private static final String SPEC_VERSION_PROP = "specVersion";
 	
 	static {
 		Set<String> allSpdxTypes = new HashSet<>();
@@ -64,7 +68,7 @@ public class JsonLDDeserializer {
 		
 		Set<String> nonPropertyFieldNames = new HashSet<>();
 		nonPropertyFieldNames.add("@id");
-		nonPropertyFieldNames.add("spdxId");
+		nonPropertyFieldNames.add(SPDX_ID_PROP);
 		nonPropertyFieldNames.add("type");
 		NON_PROPERTY_FIELD_NAMES = Collections.unmodifiableSet(nonPropertyFieldNames);
 	}
@@ -94,42 +98,20 @@ public class JsonLDDeserializer {
 			logger.error("Invalid type for deserializeGraph - must be an array");
 			throw new InvalidSPDXAnalysisException("Invalid type for deserializeGraph - must be an array");
 		}
-		// First pass, we'll just collect creationInfo JSON IDs and spec versions
-		Map<String, String> creationInfoIdToSpecVersion = new HashMap<>();
-		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
-			JsonNode graphNode = iter.next();
-			Optional<String> type = typeNodeToType(graphNode.get("type"));
-			if (type.isPresent() && SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get())) {
-				String id = graphNode.has("spdxId") ? graphNode.get("spdxId").asText() : graphNode.get("@id").asText();
-				if (graphNode.has("specVersion") && Objects.nonNull(id)) {
-					creationInfoIdToSpecVersion.put(id, graphNode.get("specVersion").asText());
-				} else {
-					logger.warn("Unable to obtain spec version for a creation info: " + (Objects.isNull(id) ? "[no ID]" : id));
-				}
-			}
-		}
+		Map<String, String> creationInfoIdToSpecVersion = findCreationInfos(graph);
 		
 		// Second pass - create the top level objects in the graph
 		Map<String, TypedValue> graphIdToTypedValue = new HashMap<>();
 		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
 			JsonNode graphNode = iter.next();
-			String id = graphNode.has("spdxId") ? graphNode.get("spdxId").asText() : graphNode.get("@id").asText();
+			String id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP).asText() : graphNode.get("@id").asText();
 			if (Objects.nonNull(id)) {
 				Optional<String> type = typeNodeToType(graphNode.get("type"));
 				if (type.isPresent()) {
 					// create the object so that it can be referenced during deserialization
-					String storeId;
-					if (id.startsWith("_:")) {
-						if (!jsonAnonToStoreAnon.containsKey(id)) {
-							jsonAnonToStoreAnon.put(id, modelStore.getNextId(IdType.Anonymous));
-						}
-						storeId = jsonAnonToStoreAnon.get(id);
-					} else {
-						storeId = id;
-					}
 					String specVersion = getSpecVersionFromNode(graphNode, creationInfoIdToSpecVersion, 
 							SpdxModelFactory.getLatestSpecVersion());
-					TypedValue tv = new TypedValue(storeId, type.get(), specVersion);
+					TypedValue tv = createTypedValueFromNode(id, type.get(), specVersion);
 					modelStore.create(tv);
 					graphIdToTypedValue.put(id, tv);
 					if (!modelStore.isAnon(id)) {
@@ -153,6 +135,49 @@ public class JsonLDDeserializer {
 		return nonAnonGraphItems;
 	}
 	
+
+	/**
+	 * @param id from the JSON-LD file
+	 * @param type SPDX type
+	 * @param specVersion version of the spec
+	 * @return a TypedValue based on the id, type, and specVersion
+	 * @throws InvalidSPDXAnalysisException on model errors
+	 */
+	private TypedValue createTypedValueFromNode(String id, String type,
+			String specVersion) throws InvalidSPDXAnalysisException {
+		String storeId;
+		if (id.startsWith("_:")) {
+			if (!jsonAnonToStoreAnon.containsKey(id)) {
+				jsonAnonToStoreAnon.put(id, modelStore.getNextId(IdType.Anonymous));
+			}
+			storeId = jsonAnonToStoreAnon.get(id);
+		} else {
+			storeId = id;
+		}
+		return new TypedValue(storeId, type, specVersion);
+	}
+
+	/**
+	 * @param graph Graph of SPDX elements
+	 * @return creationInfo JSON IDs and spec versions
+	 */
+	private Map<String, String> findCreationInfos(JsonNode graph) {
+		Map<String, String> retval = new HashMap<>();
+		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
+			JsonNode graphNode = iter.next();
+			Optional<String> type = typeNodeToType(graphNode.get("type"));
+			if (type.isPresent() && SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get())) {
+				String id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP).asText() : graphNode.get("@id").asText();
+				if (graphNode.has(SPEC_VERSION_PROP) && Objects.nonNull(id)) {
+					retval.put(id, graphNode.get(SPEC_VERSION_PROP).asText());
+				} else {
+					logger.warn("Unable to obtain spec version for a creation info: {}", Objects.isNull(id) ? "[no ID]" : id);
+				}
+			}
+		}
+		return retval;
+	}
+
 	/**
 	 * @param node SPDX object node
 	 * @param creationInfoIdToSpecVersion map of creation info IDs to spec versions
@@ -160,13 +185,13 @@ public class JsonLDDeserializer {
 	 * @return
 	 */
 	String getSpecVersionFromNode(JsonNode node, Map<String, String> creationInfoIdToSpecVersion, String defaultSpecVersion) {
-		if (node.has("specVersion")) {
-			return node.get("specVersion").asText();
+		if (node.has(SPEC_VERSION_PROP)) {
+			return node.get(SPEC_VERSION_PROP).asText();
 		} else if (node.has("creationInfo")) {
 			JsonNode creationInfoNode = node.get("creationInfo");
 			if (creationInfoNode.isObject()) {
-				if (creationInfoNode.has("specVersion")) {
-					return creationInfoNode.get("specVersion").asText();
+				if (creationInfoNode.has(SPEC_VERSION_PROP)) {
+					return creationInfoNode.get(SPEC_VERSION_PROP).asText();
 				} else {
 					logger.warn("Missing creation info spec version");
 					return defaultSpecVersion;
@@ -197,20 +222,60 @@ public class JsonLDDeserializer {
 	 */
 	private synchronized TypedValue deserializeCoreObject(JsonNode node, String defaultSpecVersion,
 			Map<String, String> creationInfoIdToSpecVersion, Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException, GenerationException {
-		String jsonNodeId = node.has("@id") ? node.get("@id").asText() : 
-			node.has("spdxId") ? node.get("spdxId").asText() : null;
-		Optional<String> type;
-		String id;
-		String specVersion = defaultSpecVersion;
-		TypedValue tv;
+		TypedValue tv = getOrCreateCoreObject(node, graphIdToTypedValue, defaultSpecVersion, creationInfoIdToSpecVersion);
+		for (Iterator<Entry<String, JsonNode>> fields = node.fields(); fields.hasNext(); ) {
+			Entry<String, JsonNode> field = fields.next();
+			if (!NON_PROPERTY_FIELD_NAMES.contains(field.getKey())) {
+				PropertyDescriptor property;
+				try {
+					Optional<PropertyDescriptor> optDesc = jsonFieledNameToProperty(field.getKey(), tv.getSpecVersion());
+					if (!optDesc.isPresent()) {
+						throw new InvalidSPDXAnalysisException("No property descriptor for field "+field.getKey());
+					}
+					property = optDesc.get();
+				} catch (GenerationException e) {
+					throw new InvalidSPDXAnalysisException("Unable to convrt a JSON field name to a property", e);
+				}
+				if (field.getValue().isArray()) {
+					for (Iterator<JsonNode> elements = field.getValue().elements(); elements.hasNext(); ) {
+						modelStore.addValueToCollection(tv.getObjectUri(), property, toStoredObject(field.getKey(), elements.next(), tv.getSpecVersion(),
+								creationInfoIdToSpecVersion, graphIdToTypedValue));
+					}
+				} else {
+					modelStore.setValue(tv.getObjectUri(), property, toStoredObject(field.getKey(), field.getValue(), tv.getSpecVersion(), 
+							creationInfoIdToSpecVersion, graphIdToTypedValue));
+				}
+			}
+		}
+		return tv;
+	}
+
+
+	/**
+	 * Fetches the typed value for the core object from the map if exists, otherwise create, add to map
+	 * @param node JSON Node for the core object
+	 * @param graphIdToTypedValue map of top level Object URIs and IDs stored in the graph
+	 * @param defaultSpecVersion version of the spec to use if no creation information is available
+	 * @param creationInfoIdToSpecVersion Map of creation info IDs to spec versions
+	 * @return existing or created TypedValue for the core object
+	 * @throws InvalidSPDXAnalysisException on model exceptions
+	 */
+	private TypedValue getOrCreateCoreObject(JsonNode node,
+			Map<String, TypedValue> graphIdToTypedValue, String defaultSpecVersion,
+			Map<String, String> creationInfoIdToSpecVersion) throws InvalidSPDXAnalysisException {
+		String jsonNodeId;
+		if (node.has("@id")) {
+			jsonNodeId = node.get("@id").asText();
+		} else {
+			jsonNodeId = node.has(SPDX_ID_PROP) ? node.get(SPDX_ID_PROP).asText() : null;
+		}
 		if (graphIdToTypedValue.containsKey(jsonNodeId)) {
-			// already created
-			tv = graphIdToTypedValue.get(jsonNodeId);
-			id = tv.getObjectUri();
-			type = Optional.of(tv.getType());
-			specVersion = tv.getSpecVersion();
+			return graphIdToTypedValue.get(jsonNodeId);
 		} else {
 			// Need to create the object
+			String id;
+			Optional<String> type;
+			String specVersion;
 			if (Objects.isNull(jsonNodeId)) {
 				id = modelStore.getNextId(IdType.Anonymous);
 			} else if (jsonNodeId.startsWith("_:")) {
@@ -223,39 +288,15 @@ public class JsonLDDeserializer {
 			}
 			type = typeNodeToType(node.get("type"));
 			if (!type.isPresent()) {
-				logger.error("Missing type for core object " + node);
+				logger.error("Missing type for core object {}", node);
 				throw new InvalidSPDXAnalysisException("Missing type for core object " + node);
 			}
 			specVersion = getSpecVersionFromNode(node, creationInfoIdToSpecVersion, defaultSpecVersion);
-			tv = new TypedValue(id, type.get(), specVersion);
+			TypedValue tv = new TypedValue(id, type.get(), specVersion);
 			modelStore.create(tv);
+			graphIdToTypedValue.put(id, tv);
+			return tv;
 		}
-
-		for (Iterator<Entry<String, JsonNode>> fields = node.fields(); fields.hasNext(); ) {
-			Entry<String, JsonNode> field = fields.next();
-			if (!NON_PROPERTY_FIELD_NAMES.contains(field.getKey())) {
-				PropertyDescriptor property;
-				try {
-					Optional<PropertyDescriptor> optDesc = jsonFieledNameToProperty(field.getKey(), specVersion);
-					if (!optDesc.isPresent()) {
-						throw new InvalidSPDXAnalysisException("No property descriptor for field "+field.getKey());
-					}
-					property = optDesc.get();
-				} catch (GenerationException e) {
-					throw new InvalidSPDXAnalysisException("Unable to convrt a JSON field name to a property", e);
-				}
-				if (field.getValue().isArray()) {
-					for (Iterator<JsonNode> elements = field.getValue().elements(); elements.hasNext(); ) {
-						modelStore.addValueToCollection(id, property, toStoredObject(field.getKey(), elements.next(), specVersion,
-								creationInfoIdToSpecVersion, graphIdToTypedValue));
-					}
-				} else {
-					modelStore.setValue(id, property, toStoredObject(field.getKey(), field.getValue(), specVersion, 
-							creationInfoIdToSpecVersion, graphIdToTypedValue));
-				}
-			}
-		}
-		return tv;
 	}
 
 	/**
@@ -319,25 +360,7 @@ public class JsonLDDeserializer {
 		// individual value URL, an external URI
 		JsonLDSchema schema = getOrCreateSchema(specVersion);
 		if (schema.isSpdxObject(propertyName)) {
-			if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
-				return graphIdToTypedValue.get(jsonValue.asText());
-			} else if (jsonValue.asText().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE)) {
-				String licenseOrExceptionId = SpdxListedLicenseModelStore.objectUriToLicenseOrExceptionId(jsonValue.asText());
-				if (ListedLicenses.getListedLicenses().isSpdxListedLicenseId(licenseOrExceptionId) ||
-						ListedLicenses.getListedLicenses().isSpdxListedExceptionId(licenseOrExceptionId)) {
-					//TODO: copy over the license into this store
-					return copyManager.copy(modelStore, ListedLicenses.getListedLicenses().getLicenseModelStore(),
-							jsonValue.asText(), specVersion, null);
-				} else {
-					// treat as an external element
-					return new SimpleUriValue(jsonValue.asText());
-				}
-			} else if (!jsonValue.asText().startsWith("_:")) {
-				// either an individual URI or an external element
-				return new SimpleUriValue(jsonValue.asText());
-			} else {
-				throw new InvalidSPDXAnalysisException("Can not determine property type for "+jsonValue.asText());
-			}
+			return jsonStringToSpdxObject(jsonValue, specVersion, graphIdToTypedValue);
 		} else if (schema.isEnum(propertyName)) {
 			// we can assume that the @vocab points to the prefix for the enumerations
 			Optional<String> vocab = schema.getVocab(propertyName);
@@ -348,7 +371,7 @@ public class JsonLDDeserializer {
 		} else {
 			Optional<String> propertyType = schema.getPropertyType(propertyName);
 			if (!propertyType.isPresent()) {
-				logger.warn("Missing property type for value "+jsonValue+".  Defaulting to a string type");
+				logger.warn("Missing property type for value {}.  Defaulting to a string type", jsonValue);
 				return jsonValue.asText();
 			} else if (JsonLDSchema.STRING_TYPES.contains(propertyType.get())) {
 				return jsonValue.asText();
@@ -364,6 +387,35 @@ public class JsonLDDeserializer {
 		}
 	}
 	
+	/**
+	 * @param jsonValue string value
+	 * @param specVersion version of the spec
+	 * @param graphIdToTypedValue map of top level Object URIs and IDs stored in the graph
+	 * @return SPDX object based on the type associated with the propertyName
+	 * @throws InvalidSPDXAnalysisException on invalid SPDX data
+	 */
+	private Object jsonStringToSpdxObject(JsonNode jsonValue,
+			String specVersion, Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException {
+		if (graphIdToTypedValue.containsKey(jsonValue.asText())) {
+			return graphIdToTypedValue.get(jsonValue.asText());
+		} else if (jsonValue.asText().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE)) {
+			String licenseOrExceptionId = SpdxListedLicenseModelStore.objectUriToLicenseOrExceptionId(jsonValue.asText());
+			if (ListedLicenses.getListedLicenses().isSpdxListedLicenseId(licenseOrExceptionId) ||
+					ListedLicenses.getListedLicenses().isSpdxListedExceptionId(licenseOrExceptionId)) {
+				return copyManager.copy(modelStore, ListedLicenses.getListedLicenses().getLicenseModelStore(),
+						jsonValue.asText(), specVersion, null);
+			} else {
+				// treat as an external element
+				return new SimpleUriValue(jsonValue.asText());
+			}
+		} else if (!jsonValue.asText().startsWith("_:")) {
+			// either an individual URI or an external element
+			return new SimpleUriValue(jsonValue.asText());
+		} else {
+			throw new InvalidSPDXAnalysisException("Can not determine property type for "+jsonValue.asText());
+		}
+	}
+
 	/**
 	 * @param fieldName JSON name of the field
 	 * @param specVersion version of the spec used for the JSON field name conversion
@@ -393,7 +445,7 @@ public class JsonLDDeserializer {
 			versionToSchema.put(specVersion, schema);
 			return schema;
 		} catch (GenerationException e) {
-			logger.warn("Unable to get a schema for spec version "+specVersion+".  Trying latest spec version.");
+			logger.warn("Unable to get a schema for spec version {}.  Trying latest spec version.", specVersion);
 		}
 		String latestVersion = SpdxModelFactory.getLatestSpecVersion();
 		schema = versionToSchema.get(latestVersion);
@@ -446,7 +498,7 @@ public class JsonLDDeserializer {
 		Map<String, TypedValue> mapIdToTypedValue = new HashMap<>();
 		Map<String, String> creationInfoIdToSpecVersion = new HashMap<>();
 		
-		String id = elementNode.has("spdxId") ? elementNode.get("spdxId").asText() : elementNode.get("@id").asText();
+		String id = elementNode.has(SPDX_ID_PROP) ? elementNode.get(SPDX_ID_PROP).asText() : elementNode.get("@id").asText();
 		if (Objects.nonNull(id)) {
 			if (id.startsWith("_:")) {
 				throw new InvalidSPDXAnalysisException("Can not serialize an anonymous (blank) element");
