@@ -33,14 +33,20 @@ jobs:
     - name: List directory structure
       run: find ${{ github.workspace }}
 
+    - name: Print current directory name
+      run: pwd
+
+    - name: Print current directory contents
+      run: ls -la .
+
     - name: Upload docs artifact
       uses: actions/upload-artifact@v3
       with:
         name: javadocs
-        path: ./target/report/apidocs
+        path: ${{ github.workspace }}/target/report/apidocs
 
     - name: Deploy docs
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./target/report/apidocs
+        publish_dir: ${{ github.workspace }}/target/report/apidocs
