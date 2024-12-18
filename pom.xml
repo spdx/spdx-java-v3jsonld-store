@@ -91,6 +91,10 @@
 							<quiet>true</quiet>
 							<notimestamp>true</notimestamp>
 							<doclint>all,-missing</doclint>
+							<additionalJOptions>
+								<additionalJOption>-link</additionalJOption>
+								<additionalJOption>https://docs.oracle.com/en/java/javase/8/docs/api/</additionalJOption>
+							</additionalJOptions>
 						</configuration>
 						<executions>
 							<execution>
