@@ -25,27 +25,8 @@ jobs:
     - name: Generate docs
       run: mvn javadoc:javadoc
 
-    - name: Print runner directory
-      run: |
-        echo "Runner directory: ${{ github.workspace }}"
-
-    - name: List directory structure
-      run: find ${{ github.workspace }}
-
-    - name: Print current directory name
-      run: pwd
-
-    - name: Print current directory contents
-      run: ls -la .
-
-    - name: Upload docs artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: javadocs
-        path: ${{ github.workspace }}/target/report/apidocs
-
     - name: Deploy docs
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ${{ github.workspace }}/target/report/apidocs
+        publish_dir: ./target/reports/apidocs
