@@ -87,14 +87,10 @@
 						<artifactId>maven-javadoc-plugin</artifactId>
 						<version>3.5.0</version>
 						<configuration>
-							<source>8</source>
+							<source>11</source>
 							<quiet>true</quiet>
 							<notimestamp>true</notimestamp>
 							<doclint>all,-missing</doclint>
-							<additionalJOptions>
-								<additionalJOption>-link</additionalJOption>
-								<additionalJOption>https://docs.oracle.com/en/java/javase/8/docs/api/</additionalJOption>
-							</additionalJOptions>
 						</configuration>
 						<executions>
 							<execution>
@@ -254,8 +250,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.11.0</version>
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
+					<source>11</source>
+					<target>11</target>
 					<encoding>${project.build.sourceEncoding}</encoding>
 					<showDeprecation>true</showDeprecation>
 					<showWarnings>true</showWarnings>
