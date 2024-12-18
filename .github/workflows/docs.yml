@@ -2,7 +2,7 @@ name: Generate and publish API JavaDocs
 on:
   push:
     branches:
-      - main
+      - main-test
 
 jobs:
   docs:
