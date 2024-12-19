@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes","url":"allclasses-index.html"},{"p":"org.spdx.v3jsonldstore","l":"JsonLDDeserializer"},{"p":"org.spdx.v3jsonldstore","l":"JsonLDSchema"},{"p":"org.spdx.v3jsonldstore","l":"JsonLDSerializer"},{"p":"org.spdx.v3jsonldstore","l":"JsonLDStore"}]
