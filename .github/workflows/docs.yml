@@ -2,7 +2,8 @@ name: Generate and publish API JavaDocs
 on:
   push:
     branches:
-      - main
+      - main-test
+  workflow_dispatch:
 
 jobs:
   docs:
