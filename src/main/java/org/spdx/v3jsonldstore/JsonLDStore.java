@@ -18,10 +18,7 @@ import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.TypedValue;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_1.core.Element;
-import org.spdx.library.model.v3_0_1.core.ExternalElement;
-import org.spdx.library.model.v3_0_1.core.ExternalMap;
-import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.core.*;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.ISerializableModelStore;
 import org.spdx.storage.PropertyDescriptor;
@@ -191,7 +188,10 @@ public class JsonLDStore extends ExtendedSpdxStore
 						roots.add((Element)mo);
 					}
 					addExternalElements(mo, referencedExternalElementUris, alreadySearched);
-				} else {
+				} else if (!(mo instanceof CreationInfo)) {
+					// CreationInfos are allowed in the Serialization as a shortcut, but should not be included
+					// in the elements.  Note that they are already deserialized and included as properties for
+					// the elements as part of JsonLDDeserializer.deSerializeGraph
                     logger.warn("Non element in the serialized graph - {} will not be included in the SPDX document elements", element.getObjectUri());
 				}
 			}
