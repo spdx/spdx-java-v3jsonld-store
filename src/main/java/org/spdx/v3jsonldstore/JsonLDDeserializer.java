@@ -228,7 +228,7 @@ public class JsonLDDeserializer {
 				PropertyDescriptor property;
 				try {
 					Optional<PropertyDescriptor> optDesc = jsonFieldNameToProperty(field.getKey(), tv.getSpecVersion());
-					if (!optDesc.isPresent()) {
+					if (optDesc.isEmpty()) {
 						throw new InvalidSPDXAnalysisException("No property descriptor for field "+field.getKey());
 					}
 					property = optDesc.get();
@@ -286,7 +286,7 @@ public class JsonLDDeserializer {
 				id = jsonNodeId;
 			}
 			type = typeNodeToType(node.get("type"));
-			if (!type.isPresent()) {
+			if (type.isEmpty()) {
 				logger.error("Missing type for core object {}", node);
 				throw new InvalidSPDXAnalysisException("Missing type for core object " + node);
 			}
@@ -315,7 +315,7 @@ public class JsonLDDeserializer {
 			case ARRAY:
 				throw new InvalidSPDXAnalysisException("Can not convert a JSON array to a stored object");
 			case BOOLEAN: {
-				if (!propertyType.isPresent() || JsonLDSchema.BOOLEAN_TYPES.contains(propertyType.get())) {
+				if (propertyType.isEmpty() || JsonLDSchema.BOOLEAN_TYPES.contains(propertyType.get())) {
 					return value.asBoolean();
 				} else if (JsonLDSchema.STRING_TYPES.contains(propertyType.get())) {
 					return value.asText();
@@ -325,7 +325,7 @@ public class JsonLDDeserializer {
 			}
 			case NULL: throw new InvalidSPDXAnalysisException("Can not convert a JSON NULL to a stored object");
 			case NUMBER: {
-				if (!propertyType.isPresent() || JsonLDSchema.INTEGER_TYPES.contains(propertyType.get())) {
+				if (propertyType.isEmpty() || JsonLDSchema.INTEGER_TYPES.contains(propertyType.get())) {
 					return value.asInt();
 				} else if (JsonLDSchema.DOUBLE_TYPES.contains(propertyType.get())) {
 					return value.asDouble();
@@ -363,13 +363,13 @@ public class JsonLDDeserializer {
 		} else if (schema.isEnum(propertyName)) {
 			// we can assume that the @vocab points to the prefix for the enumerations
 			Optional<String> vocab = schema.getVocab(propertyName);
-			if (!vocab.isPresent()) {
+			if (vocab.isEmpty()) {
 				throw new InvalidSPDXAnalysisException("Missing vocabulary for enum property "+propertyName);
 			}
 			return new SimpleUriValue(vocab.get() + jsonValue.asText());
 		} else {
 			Optional<String> propertyType = schema.getPropertyType(propertyName);
-			if (!propertyType.isPresent()) {
+			if (propertyType.isEmpty()) {
 				logger.warn("Missing property type for value {}.  Defaulting to a string type", jsonValue);
 				return jsonValue.asText();
 			} else if (JsonLDSchema.STRING_TYPES.contains(propertyType.get())) {
@@ -503,7 +503,7 @@ public class JsonLDDeserializer {
 				throw new InvalidSPDXAnalysisException("Can not serialize an anonymous (blank) element");
 			}
 			Optional<String> type = typeNodeToType(elementNode.get("type"));
-			if (!type.isPresent()) {
+			if (type.isEmpty()) {
 				throw new InvalidSPDXAnalysisException("Missing type for element "+id);
 			}
 			String specVersion = getSpecVersionFromNode(elementNode, creationInfoIdToSpecVersion, 

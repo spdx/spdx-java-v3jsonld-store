@@ -460,7 +460,7 @@ public class JsonLDSchema {
 			return false;
 		}
 		Optional<JsonNode> shacl = getPropertyShacl(propertyName);
-		if (!shacl.isPresent()) {
+		if (shacl.isEmpty()) {
 			return false;
 		}
 		boolean objectType = false;
@@ -511,7 +511,7 @@ public class JsonLDSchema {
 	 */
 	public boolean isEnum(String propertyName) {
 		Optional<String> type = getPropertyType(propertyName);
-		if (!type.isPresent()) {
+		if (type.isEmpty()) {
 			return false;
 		}
 		if (!"@vocab".equals(type.get())) {

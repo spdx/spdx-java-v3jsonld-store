@@ -54,7 +54,7 @@ import net.jimblackler.jsonschemafriend.GenerationException;
  * <p>
  * The <code>serialize()</code> method will serialize the <code>@graph</code> for all SPDX elements
  * stored in the model store.
- * 
+ * </p>
  * The <code>serialize(SpdxElement element)</code> will serialize a single element.
  * 
  * @author Gary O'Neall
@@ -64,7 +64,7 @@ public class JsonLDSerializer {
 	
 	static final Logger logger = LoggerFactory.getLogger(JsonLDSerializer.class);
 	
-	static final Comparator<JsonNode> NODE_COMPARATOR = new Comparator<JsonNode>() {
+	static final Comparator<JsonNode> NODE_COMPARATOR = new Comparator<>() {
 
 		@Override
 		public int compare(JsonNode arg0, JsonNode arg1) {
