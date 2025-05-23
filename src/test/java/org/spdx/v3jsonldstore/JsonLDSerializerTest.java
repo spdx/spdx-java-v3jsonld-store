@@ -25,6 +25,8 @@ import org.spdx.library.model.v3_0_1.core.Person;
 import org.spdx.library.model.v3_0_1.core.Relationship;
 import org.spdx.library.model.v3_0_1.core.RelationshipType;
 import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.security.CvssV3VulnAssessmentRelationship;
+import org.spdx.library.model.v3_0_1.security.Vulnerability;
 import org.spdx.library.model.v3_0_1.software.SpdxFile;
 import org.spdx.library.model.v3_0_1.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
@@ -62,7 +64,7 @@ public class JsonLDSerializerTest {
 	}
 
 	/**
-	 * Test method for {@link org.spdx.v3jsonldstore.JsonLDSerializer#serialize()}.
+	 * Test method for serializing All Objects
 	 * @throws GenerationException 
 	 * @throws InvalidSPDXAnalysisException 
 	 */
@@ -155,7 +157,7 @@ public class JsonLDSerializerTest {
 	}
 	
 	/**
-	 * Test method for {@link org.spdx.v3jsonldstore.JsonLDSerializer#serialize()}.
+	 * Test method for get schema validation
 	 * @throws GenerationException 
 	 * @throws InvalidSPDXAnalysisException 
 	 */
@@ -405,5 +407,59 @@ public class JsonLDSerializerTest {
 		assertEquals(externalElementUri, relationshipResult.withArrayProperty("to").get(0).asText());
 		assertEquals(RelationshipType.CONTAINS.getLongName(), relationshipResult.get("relationshipType").asText());
 		assertTrue(Objects.isNull(resultExternal));
+	}
+
+	@Test
+	public void testSerializeDouble() throws GenerationException, InvalidSPDXAnalysisException {
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
+		String prefix = "http://test.uri#";
+		String pkgUri = prefix + "PACKAGE";
+		String agentUri = prefix + "AGENT";
+		String relUri = prefix + "REL";
+		String vulnUri = prefix + "VULN";
+		String createdName = "Creator";
+		String createdDate = "2024-07-22T16:01:15Z";
+		String specVersion = "3.0.0";
+		String pkgName = "Package Name";
+		double score = 4.3;
+
+		ModelCopyManager copyManager = new ModelCopyManager();
+		CvssV3VulnAssessmentRelationship rel = new CvssV3VulnAssessmentRelationship(modelStore, relUri, copyManager, true, prefix);
+		CreationInfo creationInfo = rel.createCreationInfo(modelStore.getNextId(IdType.Anonymous))
+				.setCreated(createdDate)
+				.setSpecVersion(specVersion)
+				.build();
+		Agent createdBy = rel.createPerson(agentUri)
+				.setCreationInfo(creationInfo)
+				.setName(createdName)
+				.build();
+		creationInfo.getCreatedBys().add(createdBy);
+		rel.setCreationInfo(creationInfo);
+		rel.setRelationshipType(RelationshipType.HAS_ASSESSMENT_FOR);
+		Vulnerability vuln = rel.createVulnerability(vulnUri).build();
+		rel.setFrom(vuln);
+		SpdxPackage pkg = rel.createSpdxPackage(pkgUri).setName(pkgName).build();
+		rel.getTos().add(pkg);
+		rel.setScore(score);
+		rel.setVectorString("(AV:N/AC:M/Au:N/C:P/I:N/A:N)");
+
+		JsonNode result = serializer.serialize(rel);
+		assertTrue(result.isObject());
+		JsonNode context = result.get("@context");
+		assertTrue(context.asText().startsWith("https://spdx.org/rdf/3."));
+		JsonNode graph = result.get("@graph");
+		assertTrue(graph.isArray());
+		List<JsonNode> resultElements = new ArrayList<>();
+		graph.elements().forEachRemaining(element -> {
+			JsonNode type = element.get("type");
+			if (!"CreationInfo".equals(type.asText())) {
+				resultElements.add(element);
+			}
+		});
+
+		assertEquals(1, resultElements.size());
+		assertEquals(relUri, resultElements.get(0).get("spdxId").asText());
+		JsonNode scoreResult = resultElements.get(0).get("security_score");
+		assertEquals(score, scoreResult.asDouble(), 0.00001);
 	}
 }

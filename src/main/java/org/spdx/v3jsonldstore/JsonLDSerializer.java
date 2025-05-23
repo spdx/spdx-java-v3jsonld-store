@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.databind.node.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spdx.core.CoreModelObject;
@@ -42,11 +43,6 @@ import org.spdx.storage.PropertyDescriptor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 
 import net.jimblackler.jsonschemafriend.GenerationException;
 
@@ -460,7 +456,9 @@ public class JsonLDSerializer {
 		} else if (object instanceof Boolean) {
 			return ((Boolean)object) ? BooleanNode.TRUE : BooleanNode.FALSE;
 		} else if (object instanceof Integer) {
-			return new IntNode((Integer)object);
+			return new IntNode((Integer) object);
+		} else if (object instanceof Double) {
+			return new DoubleNode((Double)object);
 		} else if (object instanceof IndividualUriValue) {
 			// it's an Enum, Individual or external element
 			String individualUri = ((IndividualUriValue)object).getIndividualURI();
