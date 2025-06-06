@@ -1,0 +1,202 @@
+{
+  "@context": {
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "spdx": "https://spdx.org/rdf/3.0.1/terms/Core/",
+    "spdx-profidtype": "https://spdx.org/rdf/3.0.1/terms/Core/ProfileIdentifierType/",
+    "spdx-software": "https://spdx.org/rdf/3.0.1/terms/Software/",
+    "spdx-reltype": "https://spdx.org/rdf/3.0.1/terms/Core/RelationshipType/",
+    "spdx-softwarepurpose": "https://spdx.org/rdf/3.0.1/terms/Software/SoftwarePurpose/"
+  },
+  "@graph": [
+    {
+      "@type": "spdx:SpdxDocument",
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      },
+      "spdx:profileConformance": [
+        {
+          "@id": "spdx-profidtype:core"
+        },
+        {
+          "@id": "spdx-profidtype:software"
+        }
+      ],
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "urn:uuid:01973600-280e-7e13-b035-87a63695cf3d"
+      },
+      "spdx:rootElement": {
+        "@type": "spdx-software:Sbom",
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        },
+        "spdx:profileConformance": [
+          {
+            "@id": "spdx-profidtype:core"
+          },
+          {
+            "@id": "spdx-profidtype:software"
+          }
+        ],
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "urn:uuid:01973600-280e-7e13-b035-87bd0ad286c1"
+        },
+        "spdx:rootElement": {
+          "@id": "_:myappdb"
+        }
+      }
+    },
+    {
+      "@id": "_:ci",
+      "@type": "spdx:CreationInfo",
+      "spdx:created": {
+        "@type": "xsd:dateTimeStamp",
+        "@value": "2025-06-02T16:55:03+02:00"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "urn:uuid:01973600-280e-7e13-b035-87c1c02eb24e"
+      },
+      "spdx:specVersion": "3.0.1",
+      "spdx:createdBy": {
+        "@type": "spdx:Agent",
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        },
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "urn:uuid:01973600-280e-7e13-b035-87de0ead959f"
+        }
+      }
+    },
+    {
+      "@type": "spdx:Relationship",
+      "spdx:from": {
+        "@type": "spdx:Package",
+        "spdx:name": "libmyapp",
+        "spdx-software:packageVersion": "13.3.0",
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "SPDXRef-sha3-64a5aab4dc6ed1696346fa09d3fa87b93592d6e4a8776a8e77c95a98a6d10cfbb35d97613d867d51561d2097f7d7686b00dfa1d07dc642b7ab28eea3c4ff063e"
+        },
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        }
+      },
+      "spdx:relationshipType": {
+        "@id": "spdx-reltype:hasStaticLink"
+      },
+      "spdx:to": {
+        "@id": "_:myappdb"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "urn:uuid:01973600-280e-7e13-b035-87f7fcb33c59"
+      },
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      }
+    },
+    {
+      "@type": "spdx:Relationship",
+      "spdx:from": {
+        "@type": "spdx:Package",
+        "spdx:name": "hypertrie",
+        "spdx-software:packageVersion": "0.29.4",
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "SPDXRef-sha3-bc000818e049c52617a741f5cb46feaae550cdbee6335fba9925aac38e5532a2366548320bd0727801f3689ffcb401bdd919f448a2d2261cb51f2a8faf6e8386"
+        },
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        }
+      },
+      "spdx:relationshipType": {
+        "@id": "spdx-reltype:hasStaticLink"
+      },
+      "spdx:to": {
+        "@id": "_:myappdb"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "urn:uuid:01973600-280e-7e13-b035-8800d2d725bf"
+      },
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      }
+    },
+    {
+      "@type": "spdx:Relationship",
+      "spdx:from": {
+        "@type": "spdx:Package",
+        "spdx:name": "storage",
+        "spdx-software:packageVersion": "2900",
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "SPDXRef-sha3-aa7710d9af4a83f58bbc395f719c2ab79184986df11b3312e473c059eeb076bf14967585a1aa1c66411355adbed507c2bac6f3abeb5de4c4d926a7c91fcc78a3"
+        },
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        }
+      },
+      "spdx:relationshipType": {
+        "@id": "spdx-reltype:hasStaticLink"
+      },
+      "spdx:to": {
+        "@id": "_:myappdb"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "urn:uuid:01973600-280e-7e13-b035-881a28a4612f"
+      },
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      }
+    },
+    {
+      "@type": "spdx:Relationship",
+      "spdx:from": {
+        "@type": "spdx:Package",
+        "spdx:name": "rdf4cpp",
+        "spdx-software:packageVersion": "0.0.57",
+        "spdx:spdxId": {
+          "@type": "xsd:anyURI",
+          "@value": "SPDXRef-sha3-c7a894676dba51c0dd4174bd2418242430fa6ba843d6760aebf3a9b3767833986b4e2725acff91bcae096abeea9dbdaa12aaefc71a482574dd7e8383a187893a"
+        },
+        "spdx:creationInfo": {
+          "@id": "_:ci"
+        }
+      },
+      "spdx:relationshipType": {
+        "@id": "spdx-reltype:hasStaticLink"
+      },
+      "spdx:to": {
+        "@id": "_:myappdb"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": ""
+      },
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      }
+    },
+    {
+      "@id": "_:myappdb",
+      "@type": "spdx-software:Package",
+      "spdx:name": "myappdb",
+      "spdx:packageVersion": "0.17.6",
+      "spdx:primaryPurpose": {
+        "@id": "spdx-softwarepurpose:executable"
+      },
+      "spdx:spdxId": {
+        "@type": "xsd:anyURI",
+        "@value": "SPDXRef-sha3-b35453c6ea3476388b9da6db95c41edfae0b348ec12d12a1d3249f7fd4f87a3bd7fd6d38724669277ff60a1850fc17dd81c4fc827f5983d5eaeebf396f2b6027"
+      },
+      "spdx:creationInfo": {
+        "@id": "_:ci"
+      }
+    }
+  ]
+}
