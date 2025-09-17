@@ -13,11 +13,13 @@ import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
+import org.spdx.core.TypedValue;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
@@ -47,6 +49,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 public class JsonLDStoreTest {
 	
 	private static final String PACKAGE_SBOM_FILE = "TestFiles/package_sbom.json";
+	private static final String NO_DOCUMENT_FILE = "TestFiles/no_document.json";
 	IModelStore innerStore;
 
 	/**
@@ -230,4 +233,26 @@ public class JsonLDStoreTest {
 		}
 	}
 
+	/**
+	 * Test deserializing a file wihtout an SPDX document
+	 * @throws Exception on error
+	 */
+	@Test
+	public void testDeserializeNoSpdxDocument() throws Exception {
+
+		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
+			try (FileInputStream fis = new FileInputStream(new File(NO_DOCUMENT_FILE))) {
+				ldStore.deSerialize(fis, false);
+			}
+			//noinspection unchecked
+			List<SpdxDocument> docs =
+					(List<SpdxDocument>) SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+							.collect(Collectors.toList());
+			assertEquals(1, docs.size());
+			SpdxDocument doc = docs.get(0);
+			assertEquals(2, doc.getElements().size());
+			List<String> verify = doc.verify();
+			assertTrue(verify.isEmpty());
+		}
+	}
 }

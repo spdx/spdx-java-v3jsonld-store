@@ -19,6 +19,7 @@ import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.TypedValue;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3_0_1.SpdxModelClassFactoryV3;
 import org.spdx.library.model.v3_0_1.core.*;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.ISerializableModelStore;
@@ -177,11 +178,12 @@ public class JsonLDStore extends ExtendedSpdxStore
 						SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, existingSpdxDocument.get(0).getSpecVersion(),
 						 false, null); 
 		} else {
-			
-			String documentObjectUri = "urn:spdx-document:" + UUID.randomUUID();
-			retval = (SpdxDocument)SpdxModelFactory.inflateModelObject(this, documentObjectUri,
-					SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, SpdxModelFactory.getLatestSpecVersion(),
-					 true, null); 
+			String prefix = "urn:generated-spdx-document:" + UUID.randomUUID();
+			CreationInfo creationInfo = SpdxModelClassFactoryV3.createCreationInfo(
+					this, prefix + ":Agent", "SPDX JSON-LD Deserializer",
+					null);
+			creationInfo.setComment("Document created while deserializing a JSON-LD file with no Document element meta-data");
+			retval = creationInfo.createSpdxDocument(prefix + ":spdx-document").build();
 		}
 		Collection<Element> elements = retval.getElements();
 		elements.clear();

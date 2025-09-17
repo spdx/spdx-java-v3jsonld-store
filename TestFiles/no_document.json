@@ -1,0 +1,20 @@
+{
+  "@context" : "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+  "@graph" : [ {
+    "@id" : "_:creationInfo_0",
+    "type" : "CreationInfo",
+    "specVersion" : "3.0.1",
+    "createdBy" : [ "http://prefixAgent/agent" ],
+    "created" : "2025-09-16T14:31:07Z"
+  }, {
+    "spdxId" : "http://prefixAgent/agent",
+    "type" : "Agent",
+    "name" : "agent",
+    "creationInfo" : "_:creationInfo_0"
+  }, {
+    "spdxId" : "http://prefixsbom/v0",
+    "type" : "software_Sbom",
+    "name" : "v0",
+    "creationInfo" : "_:creationInfo_0"
+  } ]
+}
