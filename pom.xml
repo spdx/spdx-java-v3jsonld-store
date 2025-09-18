@@ -62,11 +62,6 @@
 			<id>release</id>
 			<build>
 				<plugins>
-					<plugin>
-					<groupId>org.sonarsource.scanner.maven</groupId>
-					<artifactId>sonar-maven-plugin</artifactId>
-					<version>5.2.0.4988</version>
-					</plugin>
 				   	<plugin>
 				      <groupId>org.apache.maven.plugins</groupId>
 				      <artifactId>maven-source-plugin</artifactId>
@@ -196,7 +191,7 @@
     	<version>20231013</version>
     </dependency>
   </dependencies>
-     <build>
+    <build>
   		<resources>
 			<resource>
 				<targetPath>resources</targetPath>
@@ -308,7 +303,12 @@
 					</creators>
 					<originator>Organization: Linux Foundation</originator>
 				</configuration>
-	          </plugin>
+	        </plugin>
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>5.2.0.4988</version>
+			</plugin>
 		</plugins>
   </build>
   <reporting>
