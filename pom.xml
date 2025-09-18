@@ -28,7 +28,7 @@
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.organization>spdx-1</sonar.organization>
 	<sonar.projectKey>spdx-v3jsonld-store</sonar.projectKey>
-	<dependency-check-maven.version>8.4.3</dependency-check-maven.version>
+	<dependency-check-maven.version>12.1.3</dependency-check-maven.version>
   </properties>
    <licenses>
 	<license>
@@ -144,6 +144,14 @@
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
+<!-- The following dependency is to override the commons validator version dependency in ae-jsonschemafriend-core
+   reference: https://github.com/jimblackler/jsonschemafriend/issues/125
+   TODO: Once the above issue has been resolved, we should remove this dependency -->
+	<dependency>
+	  <groupId>commons-validator</groupId>
+	  <artifactId>commons-validator</artifactId>
+	  <version>1.10.0</version>
+	</dependency>
     <dependency>
       <groupId>org.metaeffekt.bundle.jsonschemafriend</groupId>
       <artifactId>ae-jsonschemafriend-core</artifactId>
