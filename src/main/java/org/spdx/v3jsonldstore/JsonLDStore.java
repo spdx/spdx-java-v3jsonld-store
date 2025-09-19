@@ -34,7 +34,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import net.jimblackler.jsonschemafriend.GenerationException;
 
 /**
- * Serializable store which reads and writes the SPDX Spec version 3 JSON LD format
+ * Serializable store which reads and writes the SPDX Spec version 3 JSON-LD format
+ *
+ * See the SPDX specification for details on the JSON-LD serialization:
+ * https://github.com/spdx/spdx-spec/blob/develop/docs/serializations.md
+ *
+ * For more information on SPDX document mapping to JSON-LD, see:
+ * https://github.com/spdx/spdx-3-model/blob/develop/serialization/jsonld.md
  *
  * @author Gary O'Neall
  */
@@ -94,7 +100,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 		serialize(stream, null);
 	}
 
-	@Override 
+	@Override
 	public void serialize(OutputStream stream, @Nullable CoreModelObject objectToSerialize)
 			throws InvalidSPDXAnalysisException, IOException {
 		JsonLDSerializer serializer;
@@ -161,6 +167,9 @@ public class JsonLDStore extends ExtendedSpdxStore
 	/**
 	 * Converts a list of elements from a serialized graph into an SPDX document
 	 *
+	 * If the serialized graph contains no SPDX document object, one will be created,
+	 * along with an associated CreationInfo object.
+	 *
 	 * @param graphElements elements found in the serialized graph
 	 * @return an SPDX document representing the serialization
 	 * @throws InvalidSPDXAnalysisException on SPDX parsing errors
@@ -176,7 +185,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 		if (existingSpdxDocument.size() == 1) {
 			retval = (SpdxDocument)SpdxModelFactory.inflateModelObject(this, existingSpdxDocument.get(0).getObjectUri(),
 						SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, existingSpdxDocument.get(0).getSpecVersion(),
-						 false, null); 
+						 false, null);
 		} else {
 			String prefix = "urn:generated-spdx-document:" + UUID.randomUUID();
 			CreationInfo creationInfo = SpdxModelClassFactoryV3.createCreationInfo(

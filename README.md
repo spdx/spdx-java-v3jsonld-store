@@ -1,7 +1,7 @@
 # spdx-java-v3jsonld-store
 
 [![javadoc](https://javadoc.io/badge2/org.spdx/spdx-v3jsonld-store/javadoc.svg)](https://javadoc.io/doc/org.spdx/spdx-v3jsonld-store)
- 
+
 Stores SPDX documents in SPDX version 3 compatible JSON-LD format.
 
 This library utilizes the [SPDX Java Library Storage Interface](https://github.com/spdx/Spdx-Java-Library#storage-interface) extending the `ExtendedSpdxStore` which allows for utilizing any underlying store which implements the [SPDX Java Library Storage Interface](https://github.com/spdx/Spdx-Java-Library#storage-interface).
@@ -30,6 +30,11 @@ This library supports the `ISerializableModelStore` interface for serializing an
 
 - [Released API documentation](https://www.javadoc.io/doc/org.spdx/spdx-v3jsonld-store) (as released on Maven Central)
 - [Development API documentation](https://spdx.github.io/spdx-java-v3jsonld-store/) (updated with each GitHub change)
+
+## SPDX 3 JSON Documentation
+
+- [SPDX model and serializations](https://github.com/spdx/spdx-spec/blob/develop/docs/serializations.md) (part of specification)
+- [SPDX document mapping to JSON-LD](https://github.com/spdx/spdx-3-model/blob/develop/serialization/jsonld.md) (implementation details)
 
 ## Development Status
 
