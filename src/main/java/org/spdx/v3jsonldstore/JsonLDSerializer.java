@@ -430,13 +430,21 @@ public class JsonLDSerializer {
 	 * @return JSON-LD property name per the SPDX 3.X JSON-LD spec
 	 */
 	private String propertyToJsonLdPropName(PropertyDescriptor prop) {
-		String profile = prop.getNameSpace().substring(0, prop.getNameSpace().length()-1);
-		profile = profile.substring(profile.lastIndexOf('/') + 1);
-		if ("Core".equals(profile)) {
-			return prop.getName();
+		if (prop.getNameSpace().startsWith("https://spdx.org/rdf/")) {
+			// we'll assume this is an SPDX standard property URL
+			//TODO: Add an SPDX general namespace prefix to SpdxConstantsV3 we can use for comparison
+			String profile = prop.getNameSpace().substring(0, prop.getNameSpace().length()-1);
+			profile = profile.substring(profile.lastIndexOf('/') + 1);
+			if ("Core".equals(profile)) {
+				return prop.getName();
+			} else {
+				return profile.toLowerCase() + "_" + prop.getName();
+			}
 		} else {
-			return profile.toLowerCase() + "_" + prop.getName();
+			// we'll assume this is an extension property
+			return prop.toString();
 		}
+
 	}
 
 	/**

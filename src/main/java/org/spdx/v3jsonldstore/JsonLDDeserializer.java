@@ -425,7 +425,21 @@ public class JsonLDDeserializer {
 	private Optional<PropertyDescriptor> jsonFieldNameToProperty(String fieldName,
 																 String specVersion) throws GenerationException {
 		JsonLDSchema schema = getOrCreateSchema(specVersion);
-		return schema.getPropertyDescriptor(fieldName);
+		Optional<PropertyDescriptor> retval = schema.getPropertyDescriptor(fieldName);
+		if (retval.isPresent()) {
+			return retval;
+		}
+		// we'll assume this is a URI for an extension property
+		int lastPartIndex = fieldName.lastIndexOf('#');
+		if (lastPartIndex < 0) {
+			lastPartIndex = fieldName.lastIndexOf('/');
+		}
+		if (lastPartIndex < 0) {
+			lastPartIndex = 0;
+		}
+		return Optional.of(new PropertyDescriptor(
+				fieldName.substring(lastPartIndex+1), fieldName.substring(0, lastPartIndex+1)));
+
 	}
 
 	/**
