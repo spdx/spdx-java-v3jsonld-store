@@ -61,7 +61,7 @@ public class JsonLDSerializer {
 	
 	static final Logger logger = LoggerFactory.getLogger(JsonLDSerializer.class);
 	
-	static final Comparator<JsonNode> NODE_COMPARATOR = new Comparator<JsonNode>() {
+	static final Comparator<JsonNode> NODE_COMPARATOR = new Comparator<>() {
 
 		@Override
 		public int compare(JsonNode arg0, JsonNode arg1) {
@@ -176,7 +176,7 @@ public class JsonLDSerializer {
 	}
 
 	/**
-	 * @param objectToSerialize optional SPDX Document or single element to serialize 
+	 * @param objectToSerialize optional SPDX Document or single element to serialize
 	 * @return the root node of the JSON serialization
 	 * @throws InvalidSPDXAnalysisException on errors retrieving the information for serialization
 	 */
@@ -197,7 +197,7 @@ public class JsonLDSerializer {
 	/**
 	 * Serialize SPDX document metadata and ALL elements listed in the root + all
 	 * elements listed in the elements list
-	 *
+	 * <p>
 	 * All references to SPDX elements not in the root or elements lists will be
 	 * external.
 	 * 
@@ -236,7 +236,8 @@ public class JsonLDSerializer {
 				idToSerializedId.put(anonId, documentSpdxId);
 				logger.warn(NON_URI_WARNING, spdxDocument.getObjectUri(), documentSpdxId);
 			}
-			graph.add(spdxDocumentToJsonNode(spdxDocument, documentSpdxId, idToSerializedId));
+			ObjectNode docJsonNode = spdxDocumentToJsonNode(spdxDocument, documentSpdxId, idToSerializedId);
+			graph.add(docJsonNode);
 			for (String type:jsonLDSchema.getElementTypes()) {
 				for (Element element:elementsToCopy) {
 					if (type.equals(element.getType())) {
@@ -247,7 +248,9 @@ public class JsonLDSerializer {
 							idToSerializedId.put(anonId, serializedId);
 							logger.warn(NON_URI_WARNING, element.getObjectUri(), serializedId);
 						}
-						if (!(useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
+						if (useExternalListedElements && element.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE)) {
+							addExternalLicenseReference(element.getObjectUri(), docJsonNode);
+						} else {
 							graph.add(modelObjectToJsonNode(element, serializedId, idToSerializedId));
 						}
 					}
@@ -264,6 +267,40 @@ public class JsonLDSerializer {
 	}
 
 	/**
+	 * Adds the listed license reference to the document external map if it is not already present
+	 * @param licenseUri listed license URI
+	 * @param docJsonNode JSON Node for the SPDX document
+	 */
+	private void addExternalLicenseReference(String licenseUri, ObjectNode docJsonNode) {
+		JsonNode importsNode = docJsonNode.get("import");
+		ArrayNode imports;
+		if (Objects.isNull(importsNode) || !importsNode.isArray()) {
+			imports = jsonMapper.createArrayNode();
+			docJsonNode.set("import", imports);
+		} else {
+			imports = (ArrayNode)importsNode;
+		}
+		boolean found = false;
+		for (JsonNode exMap : imports) {
+			if (exMap.isObject()) {
+				Optional<JsonNode> externalId = exMap.optional("externalSpdxId");
+				if (externalId.isPresent() && externalId.get().asText().equals(licenseUri)) {
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			ObjectNode externalMap = jsonMapper.createObjectNode();
+			externalMap.set("type", new TextNode("ExternalMap"));
+			externalMap.set("externalSpdxId", new TextNode(licenseUri));
+			externalMap.set("locationHint", new TextNode(
+					licenseUri.replace("http://", "https://") + ".jsonld"));
+			imports.add(externalMap);
+		}
+	}
+
+	/**
 	 * Serialize on the required portions of the SPDX document
 	 *
 	 * @param spdxDocument SPDX document to serialize
@@ -272,7 +309,7 @@ public class JsonLDSerializer {
 	 * @return a JSON node representation of the spdxDocument
 	 * @throws InvalidSPDXAnalysisException on any SPDX related error
 	 */
-	private JsonNode spdxDocumentToJsonNode(SpdxDocument spdxDocument,
+	private ObjectNode spdxDocumentToJsonNode(SpdxDocument spdxDocument,
 			String serializedId, Map<String, String> idToSerializedId) throws InvalidSPDXAnalysisException {
 		ObjectNode retval = jsonMapper.createObjectNode();
 		retval.set(JsonLDDeserializer.SPDX_ID_PROP, new TextNode(serializedId));
@@ -466,7 +503,7 @@ public class JsonLDSerializer {
 		} else if (object instanceof Integer) {
 			return new IntNode((Integer) object);
 		} else if (object instanceof Double) {
-			return new DoubleNode((Double)object);
+			return new TextNode(object.toString());
 		} else if (object instanceof IndividualUriValue) {
 			// it's an Enum, Individual or external element
 			String individualUri = ((IndividualUriValue)object).getIndividualURI();
@@ -546,6 +583,9 @@ public class JsonLDSerializer {
 	 */
 	private String typeToJsonType(String type) {
 		String[] parts = type.split("\\.");
+		if (parts.length == 1) {
+			return type;
+		}
 		if ("Core".equals(parts[0])) {
 			return JsonLDSchema.REVERSE_JAVA_WORDS.getOrDefault(parts[1], parts[1]);
 		} else {
