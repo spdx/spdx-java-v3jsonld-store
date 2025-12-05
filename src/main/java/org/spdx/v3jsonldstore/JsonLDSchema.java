@@ -196,7 +196,14 @@ public class JsonLDSchema {
 	 */
 	public boolean isSubclassOf(String superClassType, Schema subClass) throws URISyntaxException {
 		URI superClassPropertyUri = new URI("#/$defs/" + superClassType + "_props");
-		for (Schema allOfSchema:subClass.getAllOf()) {
+		Schema thenSchema = subClass.getThen();
+		Collection<Schema> allOfSchemas;
+		if (Objects.nonNull(thenSchema)) {
+			allOfSchemas = thenSchema.getAllOf();
+		} else {
+			allOfSchemas = subClass.getAllOf();
+		}
+		for (Schema allOfSchema:allOfSchemas) {
 			if (superClassPropertyUri.equals(allOfSchema.getUri())) {
 				return true;
 			}
@@ -290,48 +297,78 @@ public class JsonLDSchema {
 	 * @return JSON Schema type name for the class
 	 */
 	public Optional<String> getType(Schema classSchema) {
-		Collection<Schema> allOfs = classSchema.getAllOf();
-		if (Objects.isNull(allOfs)) {
-			logger.warn("No allOfs for {}", classSchema.getUri());
+        Schema ifSchema = classSchema.getIf();
+        if (Objects.isNull(ifSchema)) {
+            return getTypeFromOldSchema(classSchema);
+        }
+		Map<String, Schema> properties = ifSchema.getProperties();
+		if (Objects.isNull(properties)) {
+			logger.warn("No properties for {}", classSchema.getUri());
 			return Optional.empty();
 		}
-		Schema typeProperty = null;
-		for (Schema allOfSchema:allOfs) {
-			Map<String, Schema> properties = allOfSchema.getProperties();
-			typeProperty = properties.get("type");
-			if (Objects.nonNull(typeProperty)) {
-				break;
-			}
-		}
-		if (Objects.isNull(typeProperty)) {
-			return Optional.empty();
-		}
-		Collection<Schema> oneOf = typeProperty.getOneOf();
-		if (Objects.isNull(oneOf) || oneOf.isEmpty()) {
-			logger.warn("No OneOf for class schema type property {}", classSchema.getUri());
-			return Optional.empty();
-		}
-		if (oneOf.size() > 1) {
-			logger.warn("Too many OneOfs for class schema type property {}", classSchema.getUri());
-			return Optional.empty();
-		}
-		for (Schema oneOfSchema:oneOf) {
-			Object typeString = oneOfSchema.getConst();
-			if (Objects.isNull(typeString)) {
-				logger.warn("Type string is null {}", classSchema.getUri());
-				return Optional.empty();
-			}
-			if (typeString instanceof String) {
-				return Optional.of((String)typeString);
-			} else {
-				logger.warn("Type string is not of type string {}", classSchema.getUri());
-				return Optional.empty();
+		if (properties.containsKey("type")) {
+			Schema typeSchema = properties.get("type");
+			Object typeString = typeSchema.getConst();
+			if (Objects.nonNull(typeString)) {
+				if (typeString instanceof String) {
+					return Optional.of((String)typeString);
+				} else {
+					logger.warn("Type string is not of type string {}", classSchema.getUri());
+					return Optional.empty();
+				}
 			}
 		}
 		return Optional.empty();
 	}
 
-	/**
+    /**
+     * Gets the type from schemas prior to version3.0.1 where allOf is used to constrain the schema type
+     * @param classSchema Schema for the class
+     * @return JSON Schema type name for the class
+     */
+    private Optional<String> getTypeFromOldSchema(Schema classSchema) {
+        Collection<Schema> allOfs = classSchema.getAllOf();
+        if (Objects.isNull(allOfs)) {
+            logger.warn("No allOfs for {}", classSchema.getUri());
+            return Optional.empty();
+        }
+        Schema typeProperty = null;
+        for (Schema allOfSchema:allOfs) {
+            Map<String, Schema> properties = allOfSchema.getProperties();
+            typeProperty = properties.get("type");
+            if (Objects.nonNull(typeProperty)) {
+                break;
+            }
+        }
+        if (Objects.isNull(typeProperty)) {
+            return Optional.empty();
+        }
+        Collection<Schema> oneOf = typeProperty.getOneOf();
+        if (Objects.isNull(oneOf) || oneOf.isEmpty()) {
+            logger.warn("No OneOf for class schema type property {}", classSchema.getUri());
+            return Optional.empty();
+        }
+        if (oneOf.size() > 1) {
+            logger.warn("Too many OneOfs for class schema type property {}", classSchema.getUri());
+            return Optional.empty();
+        }
+        for (Schema oneOfSchema:oneOf) {
+            Object typeString = oneOfSchema.getConst();
+            if (Objects.isNull(typeString)) {
+                logger.warn("Type string is null {}", classSchema.getUri());
+                return Optional.empty();
+            }
+            if (typeString instanceof String) {
+                return Optional.of((String)typeString);
+            } else {
+                logger.warn("Type string is not of type string {}", classSchema.getUri());
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
 	 * @param root Root JSON node of the JSON representation of an SPDX serialization
 	 * @return true if the JSON node is valid
 	 */
