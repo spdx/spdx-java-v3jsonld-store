@@ -167,9 +167,9 @@ public class JsonLDDeserializer {
 			JsonNode graphNode = iter.next();
 			Optional<String> type = typeNodeToType(graphNode.get("type"));
 			if (type.isPresent() && SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get())) {
-				String id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP).asText() : graphNode.get("@id").asText();
+				JsonNode id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP) : graphNode.get("@id");
 				if (graphNode.has(SPEC_VERSION_PROP) && Objects.nonNull(id)) {
-					retval.put(id, graphNode.get(SPEC_VERSION_PROP).asText());
+					retval.put(id.asText(), graphNode.get(SPEC_VERSION_PROP).asText());
 				} else {
 					logger.warn("Unable to obtain spec version for a creation info: {}", Objects.isNull(id) ? "[no ID]" : id);
 				}
