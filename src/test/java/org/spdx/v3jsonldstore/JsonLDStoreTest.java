@@ -134,7 +134,7 @@ public class JsonLDStoreTest {
 	@Test
 	public void testValidateTestFile() throws Exception {
 		String specVersion = "3.0.1";
-		try (FileInputStream fis = new FileInputStream(new File(PACKAGE_SBOM_FILE))) {
+		try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
 			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 			JsonNode root = mapper.readTree(fis);
 			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
@@ -181,7 +181,7 @@ public class JsonLDStoreTest {
 		RelationshipType relationshipType = RelationshipType.CONTAINS;
 		
 		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
-			try (FileInputStream fis = new FileInputStream(new File(PACKAGE_SBOM_FILE))) {
+			try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
 				ldStore.deSerialize(fis, false);
 			}
 			
@@ -222,7 +222,7 @@ public class JsonLDStoreTest {
 			List<String> verifyResult = documentResult.verify();
 			assertTrue(verifyResult.isEmpty());
 			
-			try (FileInputStream fis = new FileInputStream(new File(PACKAGE_SBOM_FILE))) {
+			try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
 				try {
 					ldStore.deSerialize(fis, false);
 					fail("No overwrite should faild here");
@@ -241,7 +241,7 @@ public class JsonLDStoreTest {
 	public void testDeserializeNoSpdxDocument() throws Exception {
 
 		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
-			try (FileInputStream fis = new FileInputStream(new File(NO_DOCUMENT_FILE))) {
+			try (FileInputStream fis = new FileInputStream(NO_DOCUMENT_FILE)) {
 				ldStore.deSerialize(fis, false);
 			}
 			//noinspection unchecked
