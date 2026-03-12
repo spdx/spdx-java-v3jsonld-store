@@ -50,6 +50,7 @@ public class JsonLDStoreTest {
 	
 	private static final String PACKAGE_SBOM_FILE = "TestFiles/package_sbom.json";
 	private static final String NO_DOCUMENT_FILE = "TestFiles/no_document.json";
+	private static final String NON_STANDARD_SBOM_FILE = "TestFiles/general-serialized.json";
 	IModelStore innerStore;
 
 	/**
@@ -253,6 +254,23 @@ public class JsonLDStoreTest {
 			assertEquals(2, doc.getElements().size());
 			List<String> verify = doc.verify();
 			assertTrue(verify.isEmpty());
+		}
+	}
+
+	/**
+	 * Tests deserializing a more generalized JSON-LD document not following the full canonical SPDX
+	 * JSON-LD spec
+	 */
+	@Test
+	public void testDeSerializeNonCanonical() throws Exception {
+		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
+			try (FileInputStream fis = new FileInputStream(new File(PACKAGE_SBOM_FILE))) {
+				ldStore.deSerialize(fis, false);
+				SpdxDocument documentResult = (SpdxDocument)SpdxModelFactory.inflateModelObject(ldStore,
+						"urn:uuid:01973600-280e-7e13-b035-87a63695cf3d", SpdxConstantsV3.CORE_SPDX_DOCUMENT,
+						null, "3.0.1", false, "");
+				assertTrue(documentResult.verify().isEmpty());
+			}
 		}
 	}
 }
