@@ -223,8 +223,7 @@ public class JsonLDDeserializer {
 	private synchronized TypedValue deserializeCoreObject(JsonNode node, String defaultSpecVersion,
 			Map<String, String> creationInfoIdToSpecVersion, Map<String, TypedValue> graphIdToTypedValue) throws InvalidSPDXAnalysisException, GenerationException {
 		TypedValue tv = getOrCreateCoreObject(node, graphIdToTypedValue, defaultSpecVersion, creationInfoIdToSpecVersion);
-		for (Iterator<Entry<String, JsonNode>> fields = node.fields(); fields.hasNext(); ) {
-			Entry<String, JsonNode> field = fields.next();
+		for (Entry<String, JsonNode> field: node.properties()) {
 			if (!NON_PROPERTY_FIELD_NAMES.contains(field.getKey())) {
 				PropertyDescriptor property;
 				try {
