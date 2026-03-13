@@ -420,7 +420,8 @@ public class JsonLDSchema {
 	}
 
 	/**
-	 * @param is input stream containing SPDX JSON LD content
+	 * Validates an input stream against the SPDX JSON schema
+	 * @param is input stream containing SPDX JSON-LD serialized content
 	 * @return true if the JSON in the input stream is valid according to the schema
 	 * @throws IOException on input stream IO errors
 	 */
