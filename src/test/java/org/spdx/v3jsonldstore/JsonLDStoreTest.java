@@ -8,7 +8,7 @@ package org.spdx.v3jsonldstore;
 import static org.junit.Assert.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,9 +45,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
  * @author Gary O'Neall
  */
 public class JsonLDStoreTest {
-	
-	private static final String PACKAGE_SBOM_FILE = "TestFiles/package_sbom.json";
-	private static final String NO_DOCUMENT_FILE = "TestFiles/no_document.json";
+	private static final String PACKAGE_SBOM_FILE = "package_sbom.json";
+	private static final String NO_DOCUMENT_FILE = "no_document.json";
 	IModelStore innerStore;
 
 	/**
@@ -132,9 +131,9 @@ public class JsonLDStoreTest {
 	@Test
 	public void testValidateTestFile() throws Exception {
 		String specVersion = "3.0.1";
-		try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
+		try (InputStream is = getClass().getClassLoader().getResourceAsStream(PACKAGE_SBOM_FILE)) {
 			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
-			JsonNode root = mapper.readTree(fis);
+			JsonNode root = mapper.readTree(is);
 			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
 					String.format("spdx-context-v%s.jsonld",  specVersion),
 					String.format("spdx-model-v%s.jsonld",  specVersion));
@@ -179,8 +178,8 @@ public class JsonLDStoreTest {
 		RelationshipType relationshipType = RelationshipType.CONTAINS;
 		
 		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
-			try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
-				ldStore.deSerialize(fis, false);
+			try (InputStream is = getClass().getClassLoader().getResourceAsStream(PACKAGE_SBOM_FILE)) {
+				ldStore.deSerialize(is, false);
 			}
 			
 			SpdxDocument documentResult = (SpdxDocument)SpdxModelFactory.inflateModelObject(ldStore, documentSpdxId, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, specVersion, false, "");
@@ -220,9 +219,9 @@ public class JsonLDStoreTest {
 			List<String> verifyResult = documentResult.verify();
 			assertTrue(verifyResult.isEmpty());
 			
-			try (FileInputStream fis = new FileInputStream(PACKAGE_SBOM_FILE)) {
+			try (InputStream is = getClass().getClassLoader().getResourceAsStream(PACKAGE_SBOM_FILE)) {
 				try {
-					ldStore.deSerialize(fis, false);
+					ldStore.deSerialize(is, false);
 					fail("No overwrite should faild here");
 				} catch (InvalidSPDXAnalysisException ex) {
 					//expected
@@ -239,8 +238,8 @@ public class JsonLDStoreTest {
 	public void testDeserializeNoSpdxDocument() throws Exception {
 
 		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
-			try (FileInputStream fis = new FileInputStream(NO_DOCUMENT_FILE)) {
-				ldStore.deSerialize(fis, false);
+			try (InputStream is = getClass().getClassLoader().getResourceAsStream(NO_DOCUMENT_FILE)) {
+				ldStore.deSerialize(is, false);
 			}
 			//noinspection unchecked
 			List<SpdxDocument> docs =

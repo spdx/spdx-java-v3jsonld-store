@@ -7,8 +7,8 @@ package org.spdx.v3jsonldstore;
 
 import static org.junit.Assert.*;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -28,8 +28,7 @@ import net.jimblackler.jsonschemafriend.Schema;
  * @author Gary O'Neall
  */
 public class JsonLDSchemaTest {
-	
-	static final String JSON_EXAMPLE_FILE = "TestFiles" + File.separator + "package_sbom.json";
+	static final String JSON_EXAMPLE_FILE = "package_sbom.json";
 
 	/**
 	 * @throws java.lang.Exception
@@ -88,9 +87,10 @@ public class JsonLDSchemaTest {
 	
 	@Test
 	public void testValidateFile() throws GenerationException, IOException {
-		File exampleFile = new File(JSON_EXAMPLE_FILE);
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
-		assertTrue(schema.validate(exampleFile));
+		try (InputStream is = getClass().getClassLoader().getResourceAsStream(JSON_EXAMPLE_FILE)) {
+			JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
+			assertTrue(schema.validate(is));
+		}
 	}
 	
 	@Test

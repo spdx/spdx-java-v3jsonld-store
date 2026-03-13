@@ -420,6 +420,27 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * @param is input stream containing SPDX JSON LD content
+	 * @return true if the JSON in the input stream is valid according to the schema
+	 * @throws IOException on input stream IO errors
+	 */
+	public boolean validate(InputStream is) throws IOException {
+		try {
+			validator.validate(spdxRootSchema, is);
+			return true;
+		} catch (SchemaException e) {
+			logger.error("JSON object does not match schema: {}", e.getMessage());
+			return false;
+		} catch (JsonProcessingException e) {
+			logger.error("Unable to parse JSON object: {}", e.getMessage());
+			return false;
+		} catch (IllegalArgumentException e) {
+			logger.error(e.getMessage());
+			return false;
+		}
+	}
+
+	/**
 	 * Returns all SPDX element type names
 	 * @return the elementTypes
 	 */
