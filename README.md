@@ -1,4 +1,4 @@
-# spdx-java-v3jsonld-store
+# SPDX Java V3 JSON-LD Store
 
 [![Maven Central](https://img.shields.io/maven-central/v/org.spdx/spdx-v3jsonld-store)](https://central.sonatype.com/artifact/org.spdx/spdx-v3jsonld-store)
 [![javadoc](https://javadoc.io/badge2/org.spdx/spdx-v3jsonld-store/javadoc.svg)](https://javadoc.io/doc/org.spdx/spdx-v3jsonld-store)
