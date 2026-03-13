@@ -10,7 +10,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -99,11 +98,10 @@ public class JsonLDDeserializer {
 			throw new InvalidSPDXAnalysisException("Invalid type for deserializeGraph - must be an array");
 		}
 		Map<String, String> creationInfoIdToSpecVersion = findCreationInfos(graph);
-		
+
 		// Second pass - create the top level objects in the graph
 		Map<String, TypedValue> graphIdToTypedValue = new HashMap<>();
-		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
-			JsonNode graphNode = iter.next();
+		for (JsonNode graphNode : graph) {
 			String id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP).asText() : graphNode.get("@id").asText();
 			if (Objects.nonNull(id)) {
 				Optional<String> type = typeNodeToType(graphNode.get("type"));
@@ -122,11 +120,11 @@ public class JsonLDDeserializer {
 				logger.warn("Missing ID for one of the SPDX objects in the graph");
 			}
 		}
-		
+
 		// 3rd pass - deserialize the properties
-		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
+		for (JsonNode graphNode : graph) {
 			try {
-				deserializeCoreObject(iter.next(), SpdxModelFactory.getLatestSpecVersion(), 
+				deserializeCoreObject(graphNode, SpdxModelFactory.getLatestSpecVersion(),
 						creationInfoIdToSpecVersion, graphIdToTypedValue);
 			} catch (GenerationException e) {
 				throw new InvalidSPDXAnalysisException("Unable to open schema file");
@@ -163,8 +161,7 @@ public class JsonLDDeserializer {
 	 */
 	private Map<String, String> findCreationInfos(JsonNode graph) {
 		Map<String, String> retval = new HashMap<>();
-		for (Iterator<JsonNode> iter = graph.elements(); iter.hasNext(); ) {
-			JsonNode graphNode = iter.next();
+		for (JsonNode graphNode : graph) {
 			Optional<String> type = typeNodeToType(graphNode.get("type"));
 			if (type.isPresent() && SpdxConstantsV3.CORE_CREATION_INFO.equals(type.get())) {
 				JsonNode id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP) : graphNode.get("@id");
@@ -236,8 +233,8 @@ public class JsonLDDeserializer {
 					throw new InvalidSPDXAnalysisException("Unable to convert a JSON field name to a property", e);
 				}
 				if (field.getValue().isArray()) {
-					for (Iterator<JsonNode> elements = field.getValue().elements(); elements.hasNext(); ) {
-						modelStore.addValueToCollection(tv.getObjectUri(), property, toStoredObject(field.getKey(), elements.next(), tv.getSpecVersion(),
+					for (JsonNode element : field.getValue()) {
+						modelStore.addValueToCollection(tv.getObjectUri(), property, toStoredObject(field.getKey(), element, tv.getSpecVersion(),
 								creationInfoIdToSpecVersion, graphIdToTypedValue));
 					}
 				} else {
