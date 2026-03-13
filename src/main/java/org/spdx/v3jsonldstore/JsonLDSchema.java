@@ -99,6 +99,7 @@ public class JsonLDSchema {
 	private final List<String> anyLicenseInfoTypes;
 
 	/**
+	 * Loads the SPDX JSON schema, JSON-LD context, and SHACL model from the given resource files
 	 * @param schemaFileName File name for the schema file in the resources directory
 	 * @param contextFileName File name for the context file in the resources directory
 	 * @param modelFileName File name for the model file in the resources directory
@@ -177,6 +178,7 @@ public class JsonLDSchema {
 	}
 	
 	/**
+	 * Returns all class schemas defined in the SPDX JSON schema
 	 * @return a list of schemas for all classes defined in the SPDX schema
 	 */
 	public Collection<Schema> getAllClasses() {
@@ -189,6 +191,7 @@ public class JsonLDSchema {
 	}
 	
 	/**
+	 * Returns true if the given schema is a subclass of the specified superclass type
 	 * @param superClassType superclass type
 	 * @param subClass schema for the subclass
 	 * @return true if the subClass schema contains the property restrictions for the superclass types
@@ -216,6 +219,7 @@ public class JsonLDSchema {
 	}
 	
 	/**
+	 * Returns true if the given schema requires the named property
 	 * @param propertyName name of the property to check
 	 * @param schema schema containing property restrictions
 	 * @return true if the schema requires a property named propertyName via properties, subSchemas, or allOf
@@ -225,6 +229,7 @@ public class JsonLDSchema {
 	}
 	
 	/**
+	 * Returns true if the given schema requires the named property
 	 * @param propertyName name of the property to check
 	 * @param schema schema containing property restrictions
 	 * @param checkedSchemas set of schemas which has already been checked
@@ -252,6 +257,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns the schema for the named SPDX class, if defined
 	 * @param className name of the class
 	 * @return schema for the class if it exists
 	 */
@@ -265,8 +271,9 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Resolves the type URI for a class schema using the JSON-LD context
 	 * @param classSchema schema for a class
-	 * @return type URI for the type of the class from the JSON LD Context
+	 * @return type URI for the type of the class from the JSON-LD context
 	 */
 	public Optional<URI> getTypeUri(Schema classSchema) {
 		Optional<String> type = getType(classSchema);
@@ -293,6 +300,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns the JSON schema type name for the given class schema
 	 * @param classSchema Schema for the class
 	 * @return JSON Schema type name for the class
 	 */
@@ -322,7 +330,7 @@ public class JsonLDSchema {
 	}
 
     /**
-     * Gets the type from schemas prior to version3.0.1 where allOf is used to constrain the schema type
+     * Gets the type from schemas prior to version 3.0.1 where allOf is used to constrain the schema type
      * @param classSchema Schema for the class
      * @return JSON Schema type name for the class
      */
@@ -369,6 +377,7 @@ public class JsonLDSchema {
     }
 
     /**
+	 * Validates a JSON node against the SPDX JSON schema
 	 * @param root Root JSON node of the JSON representation of an SPDX serialization
 	 * @return true if the JSON node is valid
 	 */
@@ -389,8 +398,9 @@ public class JsonLDSchema {
 	}
 
 	/**
-	 * @param spdxJsonFile file containing SPDX JSON LD content
-	 * @return true if the JSON in file is valid according to the schema
+	 * Validates a file against the SPDX JSON schema
+	 * @param spdxJsonFile file containing SPDX JSON-LD serialized content
+	 * @return true if the JSON in the file is valid according to the schema
 	 * @throws IOException on file IO errors
 	 */
 	public boolean validate(File spdxJsonFile) throws IOException {
@@ -410,6 +420,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns all SPDX element type names
 	 * @return the elementTypes
 	 */
 	public List<String> getElementTypes() {
@@ -417,6 +428,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns all AnyLicenseInfo type names
 	 * @return the anyLicenseInfoTypes
 	 */
 	public List<String> getAnyLicenseInfoTypes() {
@@ -424,6 +436,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns the JSON-LD {@code @type} for the named property from the context
 	 * @param propertyName name of the property
 	 * @return the JSON property type if it exists in the JSON-LD context
 	 */
@@ -437,7 +450,8 @@ public class JsonLDSchema {
 	}
 
 	/**
-	 * @param propertyName name of a property in the JSON LD schema
+	 * Returns the {@code @vocab} URI for the named property from the JSON-LD context
+	 * @param propertyName name of a property in the JSON-LD schema
 	 * @return the vocab definition
 	 */
 	public Optional<String> getVocab(String propertyName) {
@@ -454,6 +468,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns the SPDX model {@link PropertyDescriptor} for the given JSON field name
 	 * @param fieldName name of a JSON field / property
 	 * @return the SPDX model property descriptor for the JSON property
 	 */
@@ -490,6 +505,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns true if the property value is an ID referencing an SPDX object
 	 * @param propertyName Name of the property
 	 * @return true if the value associated with the property is an ID representing an SPDX Object
 	 */
@@ -515,6 +531,7 @@ public class JsonLDSchema {
 	}
 	
 	/**
+	 * Returns true if the property value is a named individual from the SPDX vocabulary
 	 * @param propertyName Name of the property
 	 * @param propertyValue property value
 	 * @return true if the propertyValue represents an Individual from the vocabulary
@@ -544,6 +561,7 @@ public class JsonLDSchema {
 	}
 
 	/**
+	 * Returns true if the property is an enumeration type in the SPDX vocabulary
 	 * @param propertyName Name of the property
 	 * @return true if the propertyValue represents an enumeration
 	 */
