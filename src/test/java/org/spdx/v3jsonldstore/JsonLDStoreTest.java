@@ -8,7 +8,6 @@ package org.spdx.v3jsonldstore;
 import static org.junit.Assert.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,7 +18,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
-import org.spdx.core.TypedValue;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
