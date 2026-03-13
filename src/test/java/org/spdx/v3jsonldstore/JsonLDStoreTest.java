@@ -47,6 +47,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 public class JsonLDStoreTest {
 	private static final String PACKAGE_SBOM_FILE = "package_sbom.json";
 	private static final String NO_DOCUMENT_FILE = "no_document.json";
+	private static final String YOCTO_SPDX_FILE = "core-image-minimal.json";
 	IModelStore innerStore;
 
 	/**
@@ -248,6 +249,28 @@ public class JsonLDStoreTest {
 			assertEquals(1, docs.size());
 			SpdxDocument doc = docs.get(0);
 			assertEquals(2, doc.getElements().size());
+			List<String> verify = doc.verify();
+			assertTrue(verify.isEmpty());
+		}
+	}
+
+	/**
+	 * Test deserializing a Yocto-generated SPDX 3 file
+	 * @throws Exception on error
+	 */
+	@Test
+	public void testDeserializeYoctoSpdxDocument() throws Exception {
+		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
+			try (InputStream is = getClass().getClassLoader().getResourceAsStream(YOCTO_SPDX_FILE)) {
+				ldStore.deSerialize(is, false);
+			}
+			//noinspection unchecked
+			List<SpdxDocument> docs =
+					(List<SpdxDocument>) SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+							.collect(Collectors.toList());
+			assertEquals(1, docs.size());
+			SpdxDocument doc = docs.get(0);
+			assertEquals(17805, doc.getElements().size());
 			List<String> verify = doc.verify();
 			assertTrue(verify.isEmpty());
 		}

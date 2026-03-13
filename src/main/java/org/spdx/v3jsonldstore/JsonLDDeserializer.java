@@ -102,17 +102,17 @@ public class JsonLDDeserializer {
 		// Second pass - create the top level objects in the graph
 		Map<String, TypedValue> graphIdToTypedValue = new HashMap<>();
 		for (JsonNode graphNode : graph) {
-			String id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP).asText() : graphNode.get("@id").asText();
+			JsonNode id = graphNode.has(SPDX_ID_PROP) ? graphNode.get(SPDX_ID_PROP) : graphNode.get("@id");
 			if (Objects.nonNull(id)) {
 				Optional<String> type = typeNodeToType(graphNode.get("type"));
 				if (type.isPresent()) {
 					// create the object so that it can be referenced during deserialization
 					String specVersion = getSpecVersionFromNode(graphNode, creationInfoIdToSpecVersion, 
 							SpdxModelFactory.getLatestSpecVersion());
-					TypedValue tv = createTypedValueFromNode(id, type.get(), specVersion);
+					TypedValue tv = createTypedValueFromNode(id.asText(), type.get(), specVersion);
 					modelStore.create(tv);
-					graphIdToTypedValue.put(id, tv);
-					if (!modelStore.isAnon(id)) {
+					graphIdToTypedValue.put(id.asText(), tv);
+					if (!modelStore.isAnon(id.asText())) {
 						nonAnonGraphItems.add(tv);
 					}
 				}
