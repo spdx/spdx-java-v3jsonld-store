@@ -242,9 +242,9 @@ public class JsonLDStoreTest {
 			try (InputStream is = getClass().getClassLoader().getResourceAsStream(NO_DOCUMENT_FILE)) {
 				ldStore.deSerialize(is, false);
 			}
-			//noinspection unchecked
 			List<SpdxDocument> docs =
-					(List<SpdxDocument>) SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+					SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+							.map(SpdxDocument.class::cast)
 							.collect(Collectors.toList());
 			assertEquals(1, docs.size());
 			SpdxDocument doc = docs.get(0);
@@ -264,9 +264,9 @@ public class JsonLDStoreTest {
 			try (InputStream is = getClass().getClassLoader().getResourceAsStream(YOCTO_SPDX_FILE)) {
 				ldStore.deSerialize(is, false);
 			}
-			//noinspection unchecked
 			List<SpdxDocument> docs =
-					(List<SpdxDocument>) SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+					SpdxModelFactory.getSpdxObjects(ldStore, null, SpdxConstantsV3.CORE_SPDX_DOCUMENT, null, null)
+							.map(SpdxDocument.class::cast)
 							.collect(Collectors.toList());
 			assertEquals(1, docs.size());
 			SpdxDocument doc = docs.get(0);
