@@ -18,7 +18,7 @@ import java.util.Optional;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3.SpdxConstantsV3;
 import org.spdx.storage.PropertyDescriptor;
 
 import net.jimblackler.jsonschemafriend.GenerationException;
@@ -140,7 +140,7 @@ public class JsonLDSchemaTest {
 	
 	@Test
 	public void testGetPropertyDescriptor() throws GenerationException {
-		JsonLDSchema schema = new JsonLDSchema("schema-v3.0.1.json", "spdx-context-v3.0.1.jsonld", "spdx-model-v3.0.1.jsonld");
+		JsonLDSchema schema = new JsonLDSchema("schema-v3.1.0.json", "spdx-context-v3.1.0.jsonld", "spdx-model-v3.1.0.jsonld");
 		Optional<PropertyDescriptor> result = schema.getPropertyDescriptor("beginIntegerRange");
 		assertTrue(result.isPresent());
 		assertEquals(SpdxConstantsV3.PROP_BEGIN_INTEGER_RANGE, result.get());

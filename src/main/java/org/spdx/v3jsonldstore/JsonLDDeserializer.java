@@ -27,7 +27,7 @@ import org.spdx.core.TypedValue;
 import org.spdx.library.ListedLicenses;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
+import org.spdx.library.model.v3.SpdxConstantsV3;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.PropertyDescriptor;
@@ -76,6 +76,7 @@ public class JsonLDDeserializer {
 	private final ModelCopyManager copyManager;
 	private final ConcurrentMap<String, String> jsonAnonToStoreAnon = new ConcurrentHashMap<>();
 	private final ConcurrentMap<String, JsonLDSchema> versionToSchema = new ConcurrentHashMap<>();
+	private final String namespaceVersionString;
 
 	/**
 	 * @param modelStore Model store to deserialize the JSON text into
@@ -83,7 +84,18 @@ public class JsonLDDeserializer {
 	public JsonLDDeserializer(IModelStore modelStore) {
 		this.modelStore = modelStore;
 		this.copyManager = new ModelCopyManager();
+		this.namespaceVersionString = determineNamespaceVersionString();
 	}
+
+	/**
+	 * Determine the version string to use in the model based on the Core profile namespace
+	 * @return the namespace version string
+	 */
+	private String determineNamespaceVersionString() {
+		String[] coreProfileParts = SpdxConstantsV3.CORE_NAMESPACE.split("/");
+		return "/" + coreProfileParts[4] + "/";
+	}
+
 
 	/**
 	 * Deserializes the JSON-LD graph into the modelStore
@@ -363,7 +375,12 @@ public class JsonLDDeserializer {
 			if (vocab.isEmpty()) {
 				throw new InvalidSPDXAnalysisException("Missing vocabulary for enum property "+propertyName);
 			}
-			return new SimpleUriValue(vocab.get() + jsonValue.asText());
+			String vocabPrefix = vocab.get();
+			if (specVersion.equals("3.0.1")) {
+				// Need to convert to the latest
+				vocabPrefix = vocabPrefix.replaceAll("/3\\.0\\.1/", namespaceVersionString);
+			}
+			return new SimpleUriValue(vocabPrefix + jsonValue.asText());
 		} else {
 			Optional<String> propertyType = schema.getPropertyType(propertyName);
 			if (propertyType.isEmpty()) {
@@ -423,6 +440,11 @@ public class JsonLDDeserializer {
 		JsonLDSchema schema = getOrCreateSchema(specVersion);
 		Optional<PropertyDescriptor> retval = schema.getPropertyDescriptor(fieldName);
 		if (retval.isPresent()) {
+			if (specVersion.equals("3.0.1")) {
+				// Need to convert the namespace to the latest
+				retval.get().setNameSpace(retval.get().getNameSpace()
+						.replaceAll("/3\\.0\\.1/", namespaceVersionString));
+			}
 			return retval;
 		}
 		// we'll assume this is a URI for an extension property
