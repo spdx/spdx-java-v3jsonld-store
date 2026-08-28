@@ -5,6 +5,17 @@ on:
       - main
   workflow_dispatch:
 
+# Every run of this workflow pushes to the same gh-pages branch, so two of them
+# in flight together race to update the ref and the loser is rejected with
+# "cannot lock ref 'refs/heads/gh-pages'". A release pushes several commits to
+# main in quick succession, which is exactly when that happens. Queue the runs
+# instead of cancelling them, so a publish that has already started finishes.
+# The group deliberately leaves out the ref: the branch being published to is
+# the same one no matter which ref triggered the run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   docs:
     runs-on: ubuntu-latest
