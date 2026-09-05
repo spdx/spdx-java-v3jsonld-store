@@ -20,19 +20,19 @@ import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_1.core.Agent;
-import org.spdx.library.model.v3_0_1.core.CreationInfo;
-import org.spdx.library.model.v3_0_1.core.Element;
-import org.spdx.library.model.v3_0_1.core.HashAlgorithm;
-import org.spdx.library.model.v3_0_1.core.ProfileIdentifierType;
-import org.spdx.library.model.v3_0_1.core.Relationship;
-import org.spdx.library.model.v3_0_1.core.RelationshipType;
-import org.spdx.library.model.v3_0_1.core.SpdxDocument;
-import org.spdx.library.model.v3_0_1.software.Sbom;
-import org.spdx.library.model.v3_0_1.software.SbomType;
-import org.spdx.library.model.v3_0_1.software.SpdxFile;
-import org.spdx.library.model.v3_0_1.software.SpdxPackage;
+import org.spdx.library.model.v3.SpdxConstantsV3;
+import org.spdx.library.model.v3.core.Agent;
+import org.spdx.library.model.v3.core.CreationInfo;
+import org.spdx.library.model.v3.core.Element;
+import org.spdx.library.model.v3.core.HashAlgorithm;
+import org.spdx.library.model.v3.core.ProfileIdentifierType;
+import org.spdx.library.model.v3.core.Relationship;
+import org.spdx.library.model.v3.core.RelationshipType;
+import org.spdx.library.model.v3.core.SpdxDocument;
+import org.spdx.library.model.v3.software.Sbom;
+import org.spdx.library.model.v3.software.SbomType;
+import org.spdx.library.model.v3.software.SpdxFile;
+import org.spdx.library.model.v3.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -97,9 +97,9 @@ public class JsonLDStoreTest {
 			String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
 			
 			ModelCopyManager copyManager = new ModelCopyManager();
-			SpdxPackage pkg = new SpdxPackage(ldStore, pkgUri, copyManager, true, prefix);
+			SpdxPackage pkg = new SpdxPackage(ldStore, pkgUri, copyManager, true, specVersion, prefix);
 			CreationInfo creationInfo = new CreationInfo(ldStore, ldStore.getNextId(IdType.Anonymous),
-					copyManager, true, prefix);
+					copyManager, true, specVersion, prefix);
 			creationInfo.setCreated(createdDate)
 					.setSpecVersion(specVersion);
 			Agent createdBy = creationInfo.createPerson(agentUri)
@@ -120,6 +120,57 @@ public class JsonLDStoreTest {
 				result = bas.toString();
 			}
 			
+			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+			JsonNode root = mapper.readTree(result);
+			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),
+					String.format("spdx-context-v%s.jsonld",  specVersion),
+					String.format("spdx-model-v%s.jsonld",  specVersion));
+			assertTrue(jsonLDSchema.validate(root));
+		}
+	}
+
+	/**
+	 * Test method for {@link org.spdx.v3jsonldstore.JsonLDStore#serialize(java.io.OutputStream)}.
+	 * @throws InvalidSPDXAnalysisException
+	 */
+	@Test
+	public void testSerializeV31() throws Exception {
+
+		try (JsonLDStore ldStore = new JsonLDStore(innerStore)) {
+			String prefix = "http://test.uri#";
+			String pkgUri = prefix + "PACKAGE";
+			String agentUri = prefix + "AGENT";
+			String createdName = "Creator";
+			String createdDate = "2024-07-22T16:01:15Z";
+			String specVersion = "3.1.0";  // This is the difference from the previous test
+			String pkgName = "Package Name";
+			HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
+			String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
+
+			ModelCopyManager copyManager = new ModelCopyManager();
+			SpdxPackage pkg = new SpdxPackage(ldStore, pkgUri, copyManager, true, specVersion, prefix);
+			CreationInfo creationInfo = new CreationInfo(ldStore, ldStore.getNextId(IdType.Anonymous),
+					copyManager, true, specVersion, prefix);
+			creationInfo.setCreated(createdDate)
+					.setSpecVersion(specVersion);
+			Agent createdBy = creationInfo.createPerson(agentUri)
+					.setCreationInfo(creationInfo)
+					.setName(createdName)
+					.build();
+			creationInfo.getCreatedBys().add(createdBy);
+			pkg.setCreationInfo(creationInfo);
+			pkg.setName(pkgName);
+			pkg.getVerifiedUsings().add(pkg.createHash(ldStore.getNextId(IdType.Anonymous))
+					.setAlgorithm(hashAlgorithm)
+					.setHashValue(hashValue)
+					.build());
+
+			String result;
+			try (ByteArrayOutputStream bas = new ByteArrayOutputStream()) {
+				ldStore.serialize(bas);
+				result = bas.toString();
+			}
+
 			ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 			JsonNode root = mapper.readTree(result);
 			JsonLDSchema jsonLDSchema = new JsonLDSchema(String.format("schema-v%s.json",  specVersion),

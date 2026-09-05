@@ -32,10 +32,10 @@ import org.spdx.core.TypedValue;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
 import org.spdx.library.model.v2.license.AnyLicenseInfo;
-import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_1.core.CreationInfo;
-import org.spdx.library.model.v3_0_1.core.Element;
-import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3.SpdxConstantsV3;
+import org.spdx.library.model.v3.core.CreationInfo;
+import org.spdx.library.model.v3.core.Element;
+import org.spdx.library.model.v3.core.SpdxDocument;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IModelStoreLock;
 import org.spdx.storage.IModelStore.IdType;
@@ -183,13 +183,21 @@ public class JsonLDSerializer {
 	public JsonNode serialize(@Nullable CoreModelObject objectToSerialize) throws InvalidSPDXAnalysisException {
 		if (Objects.isNull(objectToSerialize)) {
 			return serializeAllObjects();
-		} else if (objectToSerialize instanceof SpdxDocument) {
-			return serializeSpdxDocument((SpdxDocument)objectToSerialize);
-		} else if (objectToSerialize instanceof Element) {
-			return serializeElement((Element)objectToSerialize);
+		}
+		// Convert to the latest spec version
+		CoreModelObject convertedObject = SpdxModelFactory.inflateModelObject(this.modelStore,
+				objectToSerialize.getObjectUri(), objectToSerialize.getType(), new ModelCopyManager(),
+				false, null);
+		if (convertedObject instanceof SpdxDocument) {
+			return serializeSpdxDocument((SpdxDocument)convertedObject);
 		} else {
-			logger.error("Unsupported type to serialize: {}", objectToSerialize.getClass());
-			throw new InvalidSPDXAnalysisException("Unsupported type to serialize: "+objectToSerialize.getClass());
+
+			if (convertedObject instanceof Element) {
+				return serializeElement((Element) convertedObject);
+			} else {
+				logger.error("Unsupported type to serialize: {}", objectToSerialize.getClass());
+				throw new InvalidSPDXAnalysisException("Unsupported type to serialize: " + objectToSerialize.getClass());
+			}
 		}
 		
 	}
@@ -393,7 +401,7 @@ public class JsonLDSerializer {
 		try {
 			// collect all the creation infos
 			@SuppressWarnings("unchecked")
-			List<CreationInfo> allCreationInfos = (List<CreationInfo>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager, 
+			List<CreationInfo> allCreationInfos = (List<CreationInfo>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager,
 					SpdxConstantsV3.CORE_CREATION_INFO, null, null).collect(Collectors.toList());
 			
 			for (int i = 0; i < allCreationInfos.size(); i++) {
@@ -404,9 +412,9 @@ public class JsonLDSerializer {
 			}
 			for (String type:jsonLDSchema.getElementTypes()) {
 				@SuppressWarnings("unchecked")
-				List<Element> elements = (List<Element>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager, 
+				List<Element> elements = (List<Element>) SpdxModelFactory.getSpdxObjects(modelStore, copyManager,
 						type, null, null).collect(Collectors.toList());
-				for (Element element:elements) {
+				for (CoreModelObject element:elements) {
 					String serializedId = element.getObjectUri();
 					if (modelStore.isAnon(serializedId)) {
 						String anonId = serializedId;

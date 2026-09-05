@@ -17,18 +17,18 @@ import org.junit.Test;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_1.core.Agent;
-import org.spdx.library.model.v3_0_1.core.CreationInfo;
-import org.spdx.library.model.v3_0_1.core.ExternalElement;
-import org.spdx.library.model.v3_0_1.core.HashAlgorithm;
-import org.spdx.library.model.v3_0_1.core.Person;
-import org.spdx.library.model.v3_0_1.core.Relationship;
-import org.spdx.library.model.v3_0_1.core.RelationshipType;
-import org.spdx.library.model.v3_0_1.core.SpdxDocument;
-import org.spdx.library.model.v3_0_1.security.CvssV3VulnAssessmentRelationship;
-import org.spdx.library.model.v3_0_1.security.Vulnerability;
-import org.spdx.library.model.v3_0_1.software.SpdxFile;
-import org.spdx.library.model.v3_0_1.software.SpdxPackage;
+import org.spdx.library.model.v3.core.Agent;
+import org.spdx.library.model.v3.core.CreationInfo;
+import org.spdx.library.model.v3.core.ExternalElement;
+import org.spdx.library.model.v3.core.HashAlgorithm;
+import org.spdx.library.model.v3.core.Person;
+import org.spdx.library.model.v3.core.Relationship;
+import org.spdx.library.model.v3.core.RelationshipType;
+import org.spdx.library.model.v3.core.SpdxDocument;
+import org.spdx.library.model.v3.security.CvssV3VulnAssessmentRelationship;
+import org.spdx.library.model.v3.security.Vulnerability;
+import org.spdx.library.model.v3.software.SpdxFile;
+import org.spdx.library.model.v3.software.SpdxPackage;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -70,18 +70,18 @@ public class JsonLDSerializerTest {
 	 */
 	@Test
 	public void testSerializeAllObjects() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
-
-		String prefix = "http://test.uri#";
+				String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
 		String agentUri = prefix + "AGENT";
 		String createdName = "Creator";
 		String createdDate = "2024-07-22T16:01:15Z";
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String pkgName = "Package Name";
 		HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
 		String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
-		
+
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, specVersion, modelStore);
+
 		ModelCopyManager copyManager = new ModelCopyManager();
 		SpdxPackage pkg = new SpdxPackage(modelStore, pkgUri, copyManager, true, prefix);
 		CreationInfo creationInfo = pkg.createCreationInfo(modelStore.getNextId(IdType.Anonymous))
@@ -145,7 +145,7 @@ public class JsonLDSerializerTest {
 		assertEquals(pkgUri, resultPkg.get("spdxId").asText());
 		assertEquals(pkgName, resultPkg.get("name").asText());
 		List<JsonNode> resultVerfiedUsings = new ArrayList<>();
-		resultPkg.get("verifiedUsing").elements().forEachRemaining(node -> resultVerfiedUsings.add(node));
+		resultPkg.get("verifiedUsing").elements().forEachRemaining(resultVerfiedUsings::add);
 		assertEquals(1, resultVerfiedUsings.size());
 		JsonNode resultHash = resultVerfiedUsings.get(0);
 		assertTrue(resultHash.isObject());
@@ -163,18 +163,17 @@ public class JsonLDSerializerTest {
 	 */
 	@Test
 	public void testSerializeValidate() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
-
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
 		String agentUri = prefix + "AGENT";
 		String createdName = "Creator";
 		String createdDate = "2024-07-22T16:01:15Z";
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String pkgName = "Package Name";
 		HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
 		String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
-		
+
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, specVersion, modelStore);
 		ModelCopyManager copyManager = new ModelCopyManager();
 		Agent createdBy = new Person(modelStore, agentUri, copyManager, true, prefix);
 		createdBy.setName(createdName);
@@ -200,17 +199,18 @@ public class JsonLDSerializerTest {
 	
 	@Test
 	public void testSerializeSingleElement() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
 		String agentUri = prefix + "AGENT";
 		String createdName = "Creator";
 		String createdDate = "2024-07-22T16:01:15Z";
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String pkgName = "Package Name";
 		HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
 		String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
-		
+
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, specVersion, modelStore);
+
 		ModelCopyManager copyManager = new ModelCopyManager();
 		SpdxPackage pkg = new SpdxPackage(modelStore, pkgUri, copyManager, true, prefix);
 		CreationInfo creationInfo = pkg.createCreationInfo(modelStore.getNextId(IdType.Anonymous))
@@ -271,13 +271,12 @@ public class JsonLDSerializerTest {
 	
 	@Test
 	public void testSerializeSpdxDocumentElement() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
 		String agentUri = prefix + "AGENT";
 		String createdName = "Creator";
 		String createdDate = "2024-07-22T16:01:15Z";
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String pkgName = "Package Name";
 		HashAlgorithm hashAlgorithm = HashAlgorithm.SHA256;
 		String hashValue = "d301fcd0b7c84c879456eb041af246fbc7edbfea54f6470a859d8bd4073a47b8";
@@ -291,7 +290,9 @@ public class JsonLDSerializerTest {
 		String relationshipUri = "urn:this:is:relationship";
 		String documentUri = "urn:my:document";
 		String externalLocationHint = "https://location/is/here";
-		
+
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, specVersion, modelStore);
+
 		ModelCopyManager copyManager = new ModelCopyManager();
 		SpdxPackage pkg = new SpdxPackage(modelStore, pkgUri, copyManager, true, prefix);
 		CreationInfo creationInfo = pkg.createCreationInfo(modelStore.getNextId(IdType.Anonymous))
@@ -411,7 +412,6 @@ public class JsonLDSerializerTest {
 
 	@Test
 	public void testSerializeDouble() throws GenerationException, InvalidSPDXAnalysisException {
-		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, SpdxModelFactory.getLatestSpecVersion(), modelStore);
 		String prefix = "http://test.uri#";
 		String pkgUri = prefix + "PACKAGE";
 		String agentUri = prefix + "AGENT";
@@ -419,9 +419,11 @@ public class JsonLDSerializerTest {
 		String vulnUri = prefix + "VULN";
 		String createdName = "Creator";
 		String createdDate = "2024-07-22T16:01:15Z";
-		String specVersion = "3.0.0";
+		String specVersion = "3.0.1";
 		String pkgName = "Package Name";
 		double score = 4.3;
+
+		JsonLDSerializer serializer = new JsonLDSerializer(mapper, true, false, specVersion, modelStore);
 
 		ModelCopyManager copyManager = new ModelCopyManager();
 		CvssV3VulnAssessmentRelationship rel = new CvssV3VulnAssessmentRelationship(modelStore, relUri, copyManager, true, prefix);

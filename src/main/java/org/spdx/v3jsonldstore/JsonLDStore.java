@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -18,9 +19,9 @@ import org.spdx.core.CoreModelObject;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.core.TypedValue;
 import org.spdx.library.SpdxModelFactory;
-import org.spdx.library.model.v3_0_1.SpdxConstantsV3;
-import org.spdx.library.model.v3_0_1.SpdxModelClassFactoryV3;
-import org.spdx.library.model.v3_0_1.core.*;
+import org.spdx.library.model.v3.SpdxConstantsV3;
+import org.spdx.library.model.v3.SpdxModelClassFactoryV3;
+import org.spdx.library.model.v3.core.*;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.ISerializableModelStore;
 import org.spdx.storage.PropertyDescriptor;
@@ -105,7 +106,7 @@ public class JsonLDStore extends ExtendedSpdxStore
 			throws InvalidSPDXAnalysisException, IOException {
 		JsonLDSerializer serializer;
 		try {
-			serializer = new JsonLDSerializer(JSON_MAPPER, pretty, useExternalListedElements, SpdxModelFactory.getLatestSpecVersion(), this);
+			serializer = new JsonLDSerializer(JSON_MAPPER, pretty, useExternalListedElements, determineSpecVersion(objectToSerialize), this);
 		} catch (GenerationException e) {
 			throw new InvalidSPDXAnalysisException("Unable to create JSON LD serializer", e);
 		}
@@ -122,6 +123,23 @@ public class JsonLDStore extends ExtendedSpdxStore
 		        jgen.close();
 		    }
 		}
+	}
+
+	/**
+	 * Determines the spec version based on the objectToSerialize (if present) or the highest spec version in the model store
+	 * @param objectToSerialize Optional object to serialize
+	 * @return the spec version to use when serializing this model store
+	 * @throws InvalidSPDXAnalysisException on error getting spec version values
+	 */
+	String determineSpecVersion(@Nullable CoreModelObject objectToSerialize) throws InvalidSPDXAnalysisException {
+		if (Objects.nonNull(objectToSerialize)) {
+			return objectToSerialize.getSpecVersion();
+		}
+		return super.getAllItems(null, null)
+				.map(TypedValue::getSpecVersion)
+				.filter(Objects::nonNull)
+				.max(String::compareTo)
+				.orElse("3.0.0");
 	}
 
 	@Override
