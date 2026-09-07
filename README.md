@@ -40,3 +40,13 @@ This library supports the `ISerializableModelStore` interface for serializing an
 ## Development Status
 
 Reasonably stable.
+
+## Contributing
+
+Reviews and suggestions are welcome.
+Please [submit an issue][issues] with any suggestions.
+
+See [CONTRIBUTING.md][contributing] for contribution guidelines.
+
+[issues]: https://github.com/spdx/spdx-java-v3jsonld-store/issues
+[contributing]: https://github.com/spdx/spdx-java-v3jsonld-store/blob/master/CONTRIBUTING.md
