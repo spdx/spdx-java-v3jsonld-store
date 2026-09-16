@@ -3,7 +3,7 @@
 
   <groupId>org.spdx</groupId>
   <artifactId>spdx-v3jsonld-store</artifactId>
-  <version>1.0.6-SNAPSHOT</version>
+  <version>1.0.6</version>
   <packaging>jar</packaging>
 
   <name>spdx-v3jsonld-store</name>
@@ -13,7 +13,7 @@
   	<url>https://github.com/spdx/spdx-java-v3jsonld-store</url>
   	<connection>scm:git:ssh://git@github.com:spdx/spdx-java-v3jsonld-store</connection>
    	<developerConnection>scm:git:git@github.com:spdx/spdx-java-v3jsonld-store</developerConnection>
-   	<tag>main</tag>
+   	<tag>v1.0.6</tag>
   </scm>
   <issueManagement>
   	<system>Github</system>
