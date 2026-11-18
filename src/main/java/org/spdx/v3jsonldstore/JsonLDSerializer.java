@@ -383,13 +383,9 @@ public class JsonLDSerializer {
 		List<JsonNode> graph = new ArrayList<>();
 		IModelStoreLock lock = modelStore.enterCriticalSection(true);
 		try {
-			String serializedId = objectToSerialize.getObjectUri();
-			if (modelStore.isAnon(serializedId)) {
-				String anonId = serializedId;
-				serializedId = GENERATED_SERIALIZED_ID_PREFIX + UUID.randomUUID() + "#" + modelStore.getNextId(IdType.SpdxId);
-				idToSerializedId.put(anonId, serializedId);
-				logger.warn(NON_URI_WARNING, objectToSerialize.getObjectUri(), serializedId);
-			}
+			String objectUri = objectToSerialize.getObjectUri();
+			assignSerializedId(objectUri, idToSerializedId);
+			String serializedId = idToSerializedId.getOrDefault(objectUri, objectUri);
 			if (!(useExternalListedElements && objectToSerialize.getObjectUri().startsWith(SpdxConstantsV3.SPDX_LISTED_LICENSE_NAMESPACE))) {
 				graph.add(modelObjectToJsonNode(objectToSerialize, serializedId, idToSerializedId));
 			}

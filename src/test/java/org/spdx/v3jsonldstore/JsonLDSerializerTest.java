@@ -7,6 +7,7 @@ package org.spdx.v3jsonldstore;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -14,6 +15,7 @@ import java.util.Objects;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.spdx.core.IModelCopyManager;
 import org.spdx.core.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxModelFactory;
@@ -25,6 +27,7 @@ import org.spdx.library.model.v3_0_1.core.Person;
 import org.spdx.library.model.v3_0_1.core.Relationship;
 import org.spdx.library.model.v3_0_1.core.RelationshipType;
 import org.spdx.library.model.v3_0_1.core.SpdxDocument;
+import org.spdx.library.model.v3_0_1.expandedlicensing.ConjunctiveLicenseSet;
 import org.spdx.library.model.v3_0_1.security.CvssV3VulnAssessmentRelationship;
 import org.spdx.library.model.v3_0_1.security.Vulnerability;
 import org.spdx.library.model.v3_0_1.software.SpdxFile;
@@ -461,5 +464,212 @@ public class JsonLDSerializerTest {
 		assertEquals(relUri, resultElements.get(0).get("spdxId").asText());
 		JsonNode scoreResult = resultElements.get(0).get("security_score");
 		assertEquals(score, scoreResult.asDouble(), 0.00001);
+	}
+
+	/**
+	 * Anonymous elements whose type is in the JSON-LD element types must be assigned a
+	 * generated ID in a first pass, so that references to them resolve to the same ID
+	 * no matter the order of serialization.
+	 */
+	@Test
+	public void testSerializeAnonymousElementsGetGeneratedIds() throws Exception {
+		String specVersion = "3.0.1";
+		IModelCopyManager copyManager = new ModelCopyManager();
+		JsonLDStore store = new JsonLDStore(new InMemSpdxStore());
+		String documentUri = "https://this/is/a/document";
+		String anonPersonUri = store.getNextId(IModelStore.IdType.Anonymous);
+		String anonCreationInfoUri = store.getNextId(IModelStore.IdType.Anonymous);
+		String anonRelationshipUri = store.getNextId(IModelStore.IdType.Anonymous);
+
+		CreationInfo creationInfo = new CreationInfo(store, anonCreationInfoUri, copyManager, true, null);
+		creationInfo.setSpecVersion(specVersion);
+		creationInfo.setCreated("2024-07-18T12:00:00Z");
+		Person person = new Person(store, anonPersonUri, copyManager, true, null);
+		person.setCreationInfo(creationInfo);
+		String personName = "My Name Is Gary";
+		person.setName(personName);
+		creationInfo.getCreatedBys().add(person);
+
+		Relationship relationship = new Relationship(store, anonRelationshipUri, copyManager, true, null);
+		relationship.setCreationInfo(creationInfo);
+		relationship.setFrom(person);
+		relationship.getTos().add(person);
+		relationship.setRelationshipType(RelationshipType.OTHER);
+
+		SpdxDocument document = new SpdxDocument(store, documentUri, copyManager, true, null);
+		document.setCreationInfo(creationInfo);
+		document.getRootElements().add(person);
+		document.getElements().add(person);
+		document.getElements().add(relationship);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		store.serialize(out);
+		String json = out.toString("UTF-8");
+		JsonNode graph = mapper.readTree(json).get("@graph");
+		assertNotNull(graph);
+
+		// the original anonymous URIs must never leak into the output
+		assertFalse(json.contains(anonRelationshipUri));
+		assertFalse(json.contains(anonCreationInfoUri));
+		assertFalse(json.contains(anonPersonUri));
+
+		// the anonymous relationship is serialized once with a generated ID
+		JsonNode relationshipNode = null;
+		int relationshipCount = 0;
+		for (JsonNode node : graph) {
+			if ("Relationship".equals(node.path("type").asText())) {
+				relationshipNode = node;
+				relationshipCount++;
+			}
+		}
+		assertEquals(1, relationshipCount);
+		String relationshipId = relationshipNode.path("spdxId").asText();
+		assertFalse(relationshipId.isEmpty());
+		assertNotEquals(anonRelationshipUri, relationshipId);
+
+		// the document must reference the relationship using the same generated ID
+		JsonNode documentNode = null;
+		for (JsonNode node : graph) {
+			if ("SpdxDocument".equals(node.path("type").asText())) {
+				documentNode = node;
+			}
+		}
+		assertNotNull(documentNode);
+		boolean referenced = false;
+		for (JsonNode element : documentNode.path("element")) {
+			if (relationshipId.equals(element.asText())) {
+				referenced = true;
+			}
+		}
+		assertTrue(referenced);
+
+		// the anonymous creation info keeps the _:creationInfo_ blank node form
+		boolean foundCreationInfo = false;
+		for (JsonNode node : graph) {
+			if ("CreationInfo".equals(node.path("type").asText())) {
+				assertTrue(node.path("@id").asText().startsWith("_:creationInfo_"));
+				foundCreationInfo = true;
+			}
+		}
+		assertTrue(foundCreationInfo);
+
+		// the person is included in the graph with the new ID
+		boolean foundPerson = false;
+		for (JsonNode node : graph) {
+			JsonNode nameNode = node.get("name");
+			if (Objects.nonNull(nameNode) && nameNode.isTextual() && personName.equals(nameNode.asText())) {
+				foundPerson = true;
+			}
+		}
+		assertTrue(foundPerson);
+	}
+
+	/**
+	 * Anonymous elements whose type is in the JSON-LD element types must be assigned a
+	 * generated ID in a first pass, so that references to them resolve to the same ID
+	 * no matter the order of serialization.
+	 */
+	@Test
+	public void testSerializeAnonymousElementsGetGeneratedIdsDocument() throws Exception {
+		String specVersion = "3.0.1";
+		IModelCopyManager copyManager = new ModelCopyManager();
+		JsonLDStore store = new JsonLDStore(new InMemSpdxStore());
+		String documentUri = "https://this/is/a/document";
+		String anonPersonUri = store.getNextId(IModelStore.IdType.Anonymous);
+		String anonCreationInfoUri = store.getNextId(IModelStore.IdType.Anonymous);
+		String anonRelationshipUri = store.getNextId(IModelStore.IdType.Anonymous);
+		String anonConjunctiveLicense = store.getNextId(IModelStore.IdType.Anonymous);
+
+		CreationInfo creationInfo = new CreationInfo(store, anonCreationInfoUri, copyManager, true, null);
+		creationInfo.setSpecVersion(specVersion);
+		creationInfo.setCreated("2024-07-18T12:00:00Z");
+		Person person = new Person(store, anonPersonUri, copyManager, true, null);
+		person.setCreationInfo(creationInfo);
+		String personName = "My Name Is Gary";
+		person.setName(personName);
+		creationInfo.getCreatedBys().add(person);
+
+		SpdxDocument document = new SpdxDocument(store, documentUri, copyManager, true, null);
+		document.setCreationInfo(creationInfo);
+		document.getRootElements().add(person);
+		document.getElements().add(person);
+
+		ConjunctiveLicenseSet cls = document.createConjunctiveLicenseSet(anonConjunctiveLicense)
+				.addMember(document.createCustomLicense("https://my.uri/customlicense1")
+						.setCreationInfo(creationInfo)
+						.setLicenseText("customLicense1")
+						.build())
+				.addMember(document.createCustomLicense("https://my.uri/customlicense2")
+						.setCreationInfo(creationInfo)
+						.setLicenseText("customLicense2")
+						.build())
+				.setCreationInfo(creationInfo)
+				.build();
+
+		document.getElements().add(cls);
+		Relationship relationship = new Relationship(store, anonRelationshipUri, copyManager, true, null);
+		relationship.setCreationInfo(creationInfo);
+		relationship.setFrom(document);
+		relationship.getTos().add(cls);
+		relationship.setRelationshipType(RelationshipType.OTHER);
+		document.getElements().add(relationship);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		store.serialize(out, document);
+		String json = out.toString("UTF-8");
+		JsonNode graph = mapper.readTree(json).get("@graph");
+		assertNotNull(graph);
+
+		// the original anonymous URIs must never leak into the output
+		assertFalse(json.contains(anonRelationshipUri));
+		assertFalse(json.contains(anonCreationInfoUri));
+		assertFalse(json.contains(anonPersonUri));
+		assertFalse(json.contains(anonConjunctiveLicense));
+
+		// the anonymous relationship is serialized once with a generated ID
+		JsonNode relationshipNode = null;
+		int relationshipCount = 0;
+		for (JsonNode node : graph) {
+			if ("Relationship".equals(node.path("type").asText())) {
+				relationshipNode = node;
+				relationshipCount++;
+			}
+		}
+		assertEquals(1, relationshipCount);
+		String relationshipId = relationshipNode.path("spdxId").asText();
+		assertFalse(relationshipId.isEmpty());
+		assertNotEquals(anonRelationshipUri, relationshipId);
+
+		// the anonymous creation info keeps the _:creationInfo_ blank node form
+		boolean foundCreationInfo = false;
+		for (JsonNode node : graph) {
+			if ("CreationInfo".equals(node.path("type").asText())) {
+				assertTrue(node.path("@id").asText().startsWith("_:creationInfo_"));
+				foundCreationInfo = true;
+			}
+		}
+		assertTrue(foundCreationInfo);
+
+		// the person is included in the graph with the new ID
+		boolean foundPerson = false;
+		for (JsonNode node : graph) {
+			JsonNode nameNode = node.get("name");
+			if (Objects.nonNull(nameNode) && nameNode.isTextual() && personName.equals(nameNode.asText())) {
+				foundPerson = true;
+			}
+		}
+		assertTrue(foundPerson);
+
+		// the person is included in the graph with the new ID
+		boolean foundConjunctive = false;
+		for (JsonNode node : graph) {
+			if ("expandedlicensing_ConjunctiveLicenseSet".equals(node.path("type").asText())) {
+				foundConjunctive = true;
+			}
+		}
+		assertTrue(foundConjunctive);
+
+		// There should be no generated anon nodes
+		assertFalse(json.contains("__anon__"));
 	}
 }
